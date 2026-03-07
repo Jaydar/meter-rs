@@ -1,0 +1,18 @@
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+    "-C", "link-arg=/STACK:8000000",
+    "-C", "target-feature=+crt-static"
+]
+
+
+[target.x86_64-pc-windows-gnu]
+linker = "gcc" 
+rustflags = [
+    "-C", "link-args=-Wl,--stack,8000000", 
+    "-C", "target-feature=+crt-static", 
+]
+
+
+[alias]
+# 定义一个名为 build-win 的命令
+build-win = ["build", "--release", "--target=x86_64-pc-windows-msvc", "--target=x86_64-pc-windows-gnu"]

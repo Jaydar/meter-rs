@@ -1,0 +1,189 @@
+﻿import { MenuWindow } from "menu.slint";
+import { SubmenuWindow } from "submenu.slint";
+import { Theme } from "theme.slint";
+import { Store } from "store.slint";
+
+export { MenuWindow, SubmenuWindow, Store, Theme }
+
+export component AppWindow inherits Window {
+    title: "Monitor";
+    always-on-top: true;
+    no-frame: true;
+    background: transparent;
+    default-font-size: Theme.font-size;
+    default-font-family: Theme.font-family;
+    default-font-weight: Theme.font-weight;
+    width: 200px;
+
+
+    function get_cpu_color(usage: float) -> color {
+        return usage > 50 ? Theme.text-high : (usage > 20 ? Theme.text-mid : Theme.text-low);
+    }
+
+    function get_mem_color(usage: float) -> color {
+        return usage > 80 ? Theme.text-high : (usage > 50 ? Theme.text-mid : Theme.text-low);
+    }
+
+    function get_disk_color(usage: float) -> color {
+        return usage > 80 ? Theme.text-high : (usage > 50 ? Theme.text-mid : Theme.text-low);
+    }
+
+    callback win_move(length, length);
+    callback win_move_up();
+    callback show_menu(length, length);
+
+    Rectangle {
+        background: Theme.window-bg;
+        border-radius: 10px;
+        width: 100%;
+        height: 100%;
+        clip: true;
+
+        TouchArea {
+            width: 100%;
+            height: 100%;
+            mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
+
+            moved => {
+                root.win_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
+            }
+
+            pointer-event(event) => {
+                if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
+                    root.win_move_up();
+                }
+                if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
+                    root.show_menu(self.mouse-x, self.mouse-y);
+                }
+            }
+
+            content := VerticalLayout {
+                padding: 10px;
+                spacing: 8px;
+
+                Text {
+                    text: "Monitor";
+                    color: Theme.title;
+                    font-size: 12pt;
+                    font-weight: 800;
+                }
+
+                if (Store.show_cpu || Store.show_memory || Store.show_disk_usage) : Rectangle {
+                    border-radius: 8px;
+                    background: Theme.card-bg;
+                    VerticalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        padding-top: 10px;
+                        padding-bottom: 10px;
+                        spacing: 5px;
+
+                        if (Store.show_cpu) : HorizontalLayout {
+                            alignment: space-between;
+                            Text { text: "CPU"; color: Theme.text; }
+                            Text {
+                                text: Store.cpu_usage.to-fixed(1) + "%";
+                                color: root.get_cpu_color(Store.cpu_usage);
+                            }
+                        }
+
+                        if (Store.show_memory) : HorizontalLayout {
+                            alignment: space-between;
+                            Text { text: "内存占用"; color: Theme.text; }
+                            Text {
+                                text: Store.memory_usage.to-fixed(1) + "%";
+                                color: root.get_mem_color(Store.memory_usage);
+                            }
+                        }
+
+                        if (Store.show_disk_usage) : HorizontalLayout {
+                            alignment: space-between;
+                            Text { text: "磁盘占用"; color: Theme.text; }
+                            Text {
+                                text: Store.disk_usage.to-fixed(1) + "%";
+                                color: root.get_disk_color(Store.disk_usage);
+                            }
+                        }
+                    }
+                }
+
+                if (Store.show_network) : Rectangle {
+                    border-radius: 8px;
+                    background: Theme.card-bg;
+                    VerticalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        padding-top: 8px;
+                        padding-bottom: 8px;
+                        spacing: 4px;
+
+                        Text {
+                            text: "网络";
+                            color: Theme.sub-title;
+                            font-size: 10pt;
+                            font-weight: 700;
+                        }
+
+                        HorizontalLayout {
+                            alignment: space-between;
+                            Text {
+                                text: "上传";
+                                color: Theme.text;
+                                font-size: 9pt;
+                            }
+                            Text {
+                                text: "下载";
+                                color: Theme.text;
+                                font-size: 9pt;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            alignment: space-between;
+                            Text {
+                                text: Store.network_tx;
+                                color: Theme.text-low;
+                                font-size: 10pt;
+                                font-weight: 800;
+                            }
+                            Text {
+                                text: Store.network_rx;
+                                color: Theme.text-low;
+                                font-size: 10pt;
+                                font-weight: 800;
+                            }
+                        }
+                    }
+                }
+
+                if (Store.show_disk_io) : Rectangle {
+                    border-radius: 8px;
+                    background: Theme.card-bg;
+                    VerticalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        padding-top: 8px;
+                        padding-bottom: 8px;
+                        spacing: 4px;
+                        Text {
+                            text: "磁盘读写";
+                            color: Theme.sub-title;
+                            font-size: 10pt;
+                            font-weight: 700;
+                        }
+                        Text {
+                            text: Store.disk_io_summary;
+                            color: Theme.text;
+                            font-family: "Consolas";
+                            font-size: 8.5pt;
+                            wrap: no-wrap;
+                            overflow: clip;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+

@@ -1,0 +1,111 @@
+﻿import "./assets/remixicon.ttf";
+import { Palette } from "std-widgets.slint";
+import { MenuItem } from "widget/menu-item.slint";
+
+export component MenuWindow inherits Window {
+    width: 190px;
+    height: content.preferred-height;
+    background: transparent;
+    no-frame: true;
+    always-on-top: true;
+
+    in-out property <bool> auto_start_state: false;
+    in-out property <bool> mouse_passthrough_state: false;
+    in-out property <bool> prevent_sleep_state: false;
+
+    callback close_menu();
+    callback close_app();
+    callback set_auto_start(bool);
+    callback set_mouse_passthrough(bool);
+    callback set_prevent_sleep(bool);
+    callback turn_off_display();
+    callback show_theme_submenu(length);
+    callback show_display_submenu(length);
+    callback show_window_submenu(length);
+    callback hide_submenu();
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: 10px;
+        background: Palette.background;
+        border-width: 1px;
+        border-color: Palette.border;
+        drop-shadow-blur: 14px;
+
+        content := VerticalLayout {
+            padding: 8px;
+            spacing: 2px;
+
+            theme_item := MenuItem {
+                text: "主题";
+                icon: "\u{eeaa}";
+                has_submenu: true;
+                hovered => { root.show_theme_submenu(theme_item.y); }
+            }
+            display_item := MenuItem {
+                text: "显示设置";
+                icon: "\u{ef72}";
+                has_submenu: true;
+                hovered => { root.show_display_submenu(display_item.y); }
+            }
+            window_item := MenuItem {
+                text: "窗口";
+                icon: "\u{f1d9}";
+                has_submenu: true;
+                hovered => { root.show_window_submenu(window_item.y); }
+            }
+
+            Rectangle { height: 1px; background: Palette.border; }
+
+            MenuItem {
+                text: "鼠标穿透";
+                checked: root.mouse_passthrough_state;
+                hovered => { root.hide_submenu(); }
+                clicked => {
+                    root.mouse_passthrough_state = !root.mouse_passthrough_state;
+                    root.set_mouse_passthrough(root.mouse_passthrough_state);
+                    root.close_menu();
+                }
+            }
+            MenuItem {
+                text: "禁止休眠";
+                checked: root.prevent_sleep_state;
+                hovered => { root.hide_submenu(); }
+                clicked => {
+                    root.prevent_sleep_state = !root.prevent_sleep_state;
+                    root.set_prevent_sleep(root.prevent_sleep_state);
+                    root.close_menu();
+                }
+            }
+            MenuItem {
+                text: "开机自启";
+                checked: root.auto_start_state;
+                hovered => { root.hide_submenu(); }
+                clicked => {
+                    root.auto_start_state = !root.auto_start_state;
+                    root.set_auto_start(root.auto_start_state);
+                    root.close_menu();
+                }
+            }
+            MenuItem {
+                text: "关闭显示器";
+                icon: "\u{f0ed}";
+                hovered => { root.hide_submenu(); }
+                clicked => {
+                    root.turn_off_display();
+                    root.close_menu();
+                }
+            }
+
+            Rectangle { height: 1px; background: Palette.border; }
+
+            MenuItem {
+                text: "退出程序";
+                icon: "\u{f1af}";
+                hovered => { root.hide_submenu(); }
+                clicked => { root.close_app(); }
+            }
+        }
+    }
+}

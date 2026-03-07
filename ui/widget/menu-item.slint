@@ -1,0 +1,57 @@
+﻿import { Palette } from "std-widgets.slint";
+import "../assets/remixicon.ttf";
+
+export component MenuItem inherits Rectangle {
+    in property <string> icon;
+    in property <string> text;
+    in property <bool> checked;
+    in property <bool> has_submenu: false;
+    callback clicked <=> ta.clicked;
+    callback hovered;
+
+    height: 30px;
+    border-radius: 6px;
+    background: ta.has-hover ? Palette.selection-background : transparent;
+
+    ta := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.move) {
+                root.hovered();
+            }
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+
+        Text {
+            width: 20px;
+            font-size: 17px;
+            font-family: "remixicon";
+            text: root.checked ? "\u{eb7b}" : root.icon;
+            color: ta.has-hover ? Palette.selection-foreground : Palette.foreground;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            vertical-stretch: 1;
+            text: root.text;
+            color: ta.has-hover ? Palette.selection-foreground : Palette.foreground;
+            vertical-alignment: center;
+        }
+
+        if (root.has_submenu) : Text {
+            width: 20px;
+            font-size: 15px;
+            font-family: "remixicon";
+            text: "\u{ea6d}";
+            color: ta.has-hover ? Palette.selection-foreground : Palette.foreground;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
+    }
+}
