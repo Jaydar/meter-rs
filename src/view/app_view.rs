@@ -1,6 +1,6 @@
-﻿use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use slint::{Color, ComponentHandle, RenderingState};
+use slint::{ComponentHandle, RenderingState};
 
 use crate::{base, shared, tools, ui, view};
 
@@ -33,31 +33,27 @@ impl AppView {
             .set_rendering_notifier({
                 let initialized = AtomicBool::new(false);
                 move |state, _graphics_api| match state {
-                    RenderingState::BeforeRendering => {
-                        if !initialized.swap(true, Ordering::SeqCst) {
-                            if let Some(ui) = weak.upgrade() {
-                                let settings = shared::app_settings.lock().unwrap().clone();
-                                apply_theme(&ui, settings.theme);
-                                apply_store_settings(&ui, &settings);
-                                tools::set_prevent_sleep(settings.prevent_sleep);
+                    RenderingState::BeforeRendering if !initialized.swap(true, Ordering::SeqCst) => {
+                        if let Some(ui) = weak.upgrade() {
+                            let settings = shared::app_settings.lock().unwrap().clone();
+                            apply_theme(&ui, settings.theme);
+                            apply_store_settings(&ui, &settings);
+                            ui.set_always_on_top_state(settings.always_on_top);
+                            tools::set_prevent_sleep(settings.prevent_sleep);
 
-                                if let Ok(info) = shared::win32_info.try_lock() {
-                                    if info.hwnd != 0 {
-                                        tools::set_window_topmost(info.hwnd, settings.always_on_top);
-                                        tools::set_window_opacity(info.hwnd, settings.opacity);
-                                        tools::set_mouse_passthrough(info.hwnd, settings.mouse_passthrough);
+                            if let Ok(info) = shared::win32_info.try_lock() {
+                                if info.hwnd != 0 {
+                                    tools::set_window_opacity(info.hwnd, settings.opacity);
+                                    tools::set_mouse_passthrough(info.hwnd, settings.mouse_passthrough);
 
-                                        let size = ui.window().size();
-                                        let width = size.width as i32;
-                                        let height = size.height as i32;
+                                    let size = ui.window().size();
+                                    let width = size.width as i32;
+                                    let height = size.height as i32;
 
-                                        if let Some((wa_left, wa_top, wa_right, wa_bottom)) =
-                                            tools::get_work_area(info.hwnd)
-                                        {
-                                            let x = (wa_right - width).max(wa_left);
-                                            let y = (wa_bottom - height).max(wa_top);
-                                            ui.window().set_position(slint::PhysicalPosition::new(x, y));
-                                        }
+                                    if let Some((wa_left, wa_top, wa_right, wa_bottom)) = tools::get_work_area(info.hwnd) {
+                                        let x = (wa_right - width).max(wa_left);
+                                        let y = (wa_bottom - height).max(wa_top);
+                                        ui.window().set_position(slint::PhysicalPosition::new(x, y));
                                     }
                                 }
                             }
@@ -96,6 +92,7 @@ impl AppView {
                 if !snap_enabled {
                     return;
                 }
+
                 if let Some(view_inst) = weak.upgrade() {
                     let window = view_inst.window();
                     let win32 = base::shared::win32_info.try_lock().expect("lock failed");
@@ -104,20 +101,24 @@ impl AppView {
                         let cur_y = size.1;
                         let width = size.2 - size.0;
                         let height = size.3 - size.1;
-                        if let Some((wa_left, wa_top, wa_right, wa_bottom)) = base::tools::get_work_area(win32.hwnd as usize) {
+
+                        if let Some((wa_left, wa_top, wa_right, wa_bottom)) = base::tools::get_work_area(win32.hwnd) {
                             let mut target_x = cur_x;
                             let mut target_y = cur_y;
                             let snap_dist = 50;
+
                             if cur_x < (wa_left + snap_dist) {
                                 target_x = wa_left;
                             } else if (cur_x + width) > (wa_right - snap_dist) {
                                 target_x = wa_right - width;
                             }
+
                             if cur_y < (wa_top + snap_dist) {
                                 target_y = wa_top;
                             } else if (cur_y + height) > (wa_bottom - snap_dist) {
                                 target_y = wa_bottom - height;
                             }
+
                             if target_x != cur_x || target_y != cur_y {
                                 window.set_position(slint::PhysicalPosition::new(target_x, target_y));
                             }
@@ -139,33 +140,26 @@ pub fn apply_store_settings(view: &ui::AppWindow, settings: &shared::AppSettings
     let store = view.global::<ui::Store>();
     store.set_show_cpu(settings.show_cpu);
     store.set_show_memory(settings.show_memory);
-    store.set_show_disk_usage(settings.show_disk_usage);
-    store.set_show_network(settings.show_network);
+    store.set_show_disk_total(settings.show_disk_total);
     store.set_show_disk_io(settings.show_disk_io);
+    store.set_show_network(settings.show_network);
 }
 
-pub fn apply_theme(view: &ui::AppWindow, theme_index: i32) {
-    let theme = view.global::<ui::Theme>();
-    match theme_index.rem_euclid(2) {
-        0 => {
-            theme.set_window_bg(Color::from_argb_u8(230, 0, 0, 0));
-            theme.set_card_bg(Color::from_argb_u8(255, 10, 15, 28));
-            theme.set_title(Color::from_rgb_u8(0, 229, 255));
-            theme.set_sub_title(Color::from_rgb_u8(0, 184, 212));
-            theme.set_text(Color::from_rgb_u8(255, 255, 255));
-            theme.set_text_low(Color::from_rgb_u8(0, 230, 118));
-            theme.set_text_mid(Color::from_rgb_u8(255, 234, 0));
-            theme.set_text_high(Color::from_rgb_u8(255, 23, 68));
-        }
-        _ => {
-            theme.set_window_bg(Color::from_argb_u8(225, 245, 247, 250));
-            theme.set_card_bg(Color::from_argb_u8(255, 255, 255, 255));
-            theme.set_title(Color::from_rgb_u8(14, 116, 144));
-            theme.set_sub_title(Color::from_rgb_u8(8, 145, 178));
-            theme.set_text(Color::from_rgb_u8(15, 23, 42));
-            theme.set_text_low(Color::from_rgb_u8(5, 150, 105));
-            theme.set_text_mid(Color::from_rgb_u8(202, 138, 4));
-            theme.set_text_high(Color::from_rgb_u8(220, 38, 38));
-        }
+pub fn apply_theme(view: &ui::AppWindow, theme: shared::ThemeKind) {
+    let theme_global = view.global::<ui::Theme>();
+    theme_global.set_mode(to_ui_theme_mode(theme));
+}
+
+pub fn to_ui_theme_mode(theme: shared::ThemeKind) -> ui::ThemeMode {
+    match theme {
+        shared::ThemeKind::Dark => ui::ThemeMode::Dark,
+        shared::ThemeKind::Light => ui::ThemeMode::Light,
+    }
+}
+
+pub fn from_ui_theme_mode(theme: ui::ThemeMode) -> shared::ThemeKind {
+    match theme {
+        ui::ThemeMode::Dark => shared::ThemeKind::Dark,
+        ui::ThemeMode::Light => shared::ThemeKind::Light,
     }
 }

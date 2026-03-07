@@ -1,15 +1,49 @@
-﻿export global Theme {
-    in property <color> window-bg: #000000E6;
-    in property <color> card-bg: #0A0F1C;
-    in property <color> title: #00E5FF;
-    in property <color> sub-title: #00B8D4;
+export enum ThemeMode { dark, light }
 
-    in property <color> text: #FFFFFF;
-    in property <color> text-low: #00E676;
-    in property <color> text-mid: #FFEA00;
-    in property <color> text-high: #FF1744;
+export global Theme {
+    in-out property <ThemeMode> mode: ThemeMode.dark;
+
+    in property <color> dark-window-bg: #000000E6;
+    in property <color> dark-card-bg: #0A0F1C;
+    in property <color> dark-title: #00E5FF;
+    in property <color> dark-sub-title: #00B8D4;
+    in property <color> dark-text: #FFFFFF;
+    in property <color> dark-text-low: #00E676;
+    in property <color> dark-text-mid: #FFEA00;
+    in property <color> dark-text-high: #FF1744;
+    in property <color> dark-menu-bg: #111827F2;
+    in property <color> dark-menu-border: #253047;
+    in property <color> dark-menu-hover-bg: #1E293BCC;
+    in property <color> dark-menu-hover-fg: #FFFFFF;
+
+    in property <color> light-window-bg: #E1F5F7FA;
+    in property <color> light-card-bg: #FFFFFFFF;
+    in property <color> light-title: #0E7490;
+    in property <color> light-sub-title: #0891B2;
+    in property <color> light-text: #0F172A;
+    in property <color> light-text-low: #059669;
+    in property <color> light-text-mid: #CA8A04;
+    in property <color> light-text-high: #DC2626;
+    in property <color> light-menu-bg: #FFFFFFFF;
+    in property <color> light-menu-border: #D7DFEA;
+    in property <color> light-menu-hover-bg: #E8F1FB;
+    in property <color> light-menu-hover-fg: #0F172A;
+
+    out property <color> window-bg: mode == ThemeMode.dark ? dark-window-bg : light-window-bg;
+    out property <color> card-bg: mode == ThemeMode.dark ? dark-card-bg : light-card-bg;
+    out property <color> title: mode == ThemeMode.dark ? dark-title : light-title;
+    out property <color> sub-title: mode == ThemeMode.dark ? dark-sub-title : light-sub-title;
+    out property <color> text: mode == ThemeMode.dark ? dark-text : light-text;
+    out property <color> text-low: mode == ThemeMode.dark ? dark-text-low : light-text-low;
+    out property <color> text-mid: mode == ThemeMode.dark ? dark-text-mid : light-text-mid;
+    out property <color> text-high: mode == ThemeMode.dark ? dark-text-high : light-text-high;
+    out property <color> menu-bg: mode == ThemeMode.dark ? dark-menu-bg : light-menu-bg;
+    out property <color> menu-border: mode == ThemeMode.dark ? dark-menu-border : light-menu-border;
+    out property <color> menu-hover-bg: mode == ThemeMode.dark ? dark-menu-hover-bg : light-menu-hover-bg;
+    out property <color> menu-hover-fg: mode == ThemeMode.dark ? dark-menu-hover-fg : light-menu-hover-fg;
 
     in property <string> font-family: "Microsoft YaHei UI";
+    in property <string> mono-font-family: "Consolas";
     in property <int> font-weight: 700;
     in property <length> font-size: 10pt;
 }

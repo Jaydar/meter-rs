@@ -1,0 +1,51 @@
+name: Build Windows Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc,x86_64-pc-windows-gnu
+
+      - name: Build both Windows targets
+        shell: powershell
+        env:
+          PATH: C:\msys64\mingw64\bin;${{ env.PATH }}
+        run: cargo build-win
+
+      - name: Prepare release assets
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item target\x86_64-pc-windows-msvc\release\meter-rs.exe dist\meter-rs-msvs.exe
+          Copy-Item target\x86_64-pc-windows-gnu\release\meter-rs.exe dist\meter-rs-gnu.exe
+
+      - name: Upload release assets
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/meter-rs-msvs.exe
+            dist/meter-rs-gnu.exe

@@ -10,6 +10,14 @@ pub static info_disks: LazyLock<Mutex<Disks>> = LazyLock::new(|| Mutex::new(Disk
 pub static info_networks: LazyLock<Mutex<Networks>> = LazyLock::new(|| Mutex::new(Networks::new_with_refreshed_list()));
 pub static win32_info: LazyLock<StdMutex<Win32Info>> = LazyLock::new(|| StdMutex::new(Win32Info::default()));
 pub static app_settings: LazyLock<StdMutex<AppSettings>> = LazyLock::new(|| StdMutex::new(AppSettings::default()));
+pub static disk_catalog: LazyLock<StdMutex<Vec<DiskOption>>> = LazyLock::new(|| StdMutex::new(Vec::new()));
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ThemeKind {
+    #[default]
+    Dark,
+    Light,
+}
 
 #[derive(Default, Debug)]
 pub struct Win32Info {
@@ -18,37 +26,45 @@ pub struct Win32Info {
     pub monitor_height: f32,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DiskOption {
+    pub id: String,
+    pub name: String,
+}
+
 #[derive(Clone, Debug)]
 pub struct AppSettings {
-    pub theme: i32,
+    pub theme: ThemeKind,
     pub opacity: f32,
     pub auto_start: bool,
     pub show_cpu: bool,
     pub show_memory: bool,
-    pub show_disk_usage: bool,
-    pub show_network: bool,
+    pub show_disk_total: bool,
     pub show_disk_io: bool,
+    pub show_network: bool,
     pub mouse_passthrough: bool,
     pub prevent_sleep: bool,
     pub always_on_top: bool,
     pub snap_to_edge: bool,
+    pub monitored_disk_ids: Vec<String>,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            theme: 0,
+            theme: ThemeKind::Dark,
             opacity: 0.9,
             auto_start: false,
             show_cpu: true,
             show_memory: true,
-            show_disk_usage: true,
-            show_network: true,
+            show_disk_total: true,
             show_disk_io: true,
+            show_network: true,
             mouse_passthrough: false,
             prevent_sleep: false,
             always_on_top: true,
             snap_to_edge: true,
+            monitored_disk_ids: Vec::new(),
         }
     }
 }

@@ -1,10 +1,11 @@
-﻿use crate::base::{shared, tools};
+use crate::base::{shared, tools};
 use crate::ui;
-use slint::ComponentHandle;
+use slint::{ComponentHandle, ModelRc};
+use sysinfo::System;
 
 fn format_rate(bytes: u64) -> String {
-    const UNITS: [&str; 4] = ["KB/s", "MB/s", "GB/s", "TB/s"];
-    let mut value = (bytes as f64 / 1024.0).max(0.01);
+    const UNITS: [&str; 4] = ["KB", "MB", "GB", "TB"];
+    let mut value = bytes as f64 / 1024.0;
     let mut idx = 0usize;
 
     while value >= 1024.0 && idx < UNITS.len() - 1 {
@@ -15,9 +16,17 @@ fn format_rate(bytes: u64) -> String {
     format!("{value:.2} {}", UNITS[idx])
 }
 
-fn fit_disk_name(name: &str) -> String {
-    let truncated = name.chars().take(8).collect::<String>();
-    format!("{truncated:<8}")
+fn get_computer_name() -> String {
+    System::host_name().unwrap_or_else(|| "Unknown".to_string())
+}
+
+fn disk_id(disk: &sysinfo::Disk) -> String {
+    disk.mount_point().to_string_lossy().to_string()
+}
+
+fn disk_name(disk: &sysinfo::Disk) -> String {
+    let name = disk.name().to_string_lossy().to_string();
+    if name.is_empty() { disk_id(disk) } else { name }
 }
 
 pub async fn start_monitor(view: &ui::AppWindow) {
@@ -30,16 +39,27 @@ pub async fn start_monitor(view: &ui::AppWindow) {
     let store = view.global::<ui::Store>();
     store.set_show_cpu(settings.show_cpu);
     store.set_show_memory(settings.show_memory);
-    store.set_show_disk_usage(settings.show_disk_usage);
-    store.set_show_network(settings.show_network);
+    store.set_show_disk_total(settings.show_disk_total);
     store.set_show_disk_io(settings.show_disk_io);
+    store.set_show_network(settings.show_network);
+    store.set_computer_name(get_computer_name().into());
 
     let pool = tools::get_tokio_runtime(mask, 1);
     let weak = view.as_weak();
 
     pool.spawn(async move {
         loop {
-            let (cpu_usage, memory_usage, disk_usage, network_rx, network_tx, disk_io_summary) = {
+            let (
+                cpu_usage,
+                memory_usage,
+                disk_usage,
+                network_rx,
+                network_tx,
+                disk_total_read,
+                disk_total_write,
+                monitored_disks,
+                disk_options,
+            ) = {
                 let mut system = shared::info_system.lock().await;
                 let mut disks = shared::info_disks.lock().await;
                 let mut networks = shared::info_networks.lock().await;
@@ -51,27 +71,80 @@ pub async fn start_monitor(view: &ui::AppWindow) {
 
                 let cpu = system.global_cpu_usage();
                 let mem = (system.used_memory() as f32 / system.total_memory().max(1) as f32) * 100.0;
-                let (total, used) = disks.iter().fold((0u64, 0u64), |(t, u), d| {
-                    (t + d.total_space(), u + d.total_space().saturating_sub(d.available_space()))
+                let (total_space, used_space) = disks.iter().fold((0u64, 0u64), |(t, u), disk| {
+                    (
+                        t + disk.total_space(),
+                        u + disk.total_space().saturating_sub(disk.available_space()),
+                    )
                 });
-                let disk = if total == 0 { 0.0 } else { (used as f32 / total as f32) * 100.0 };
+                let disk_usage = if total_space == 0 {
+                    0.0
+                } else {
+                    (used_space as f32 / total_space as f32) * 100.0
+                };
 
                 let (rx, tx) = networks.iter().fold((0u64, 0u64), |(rx, tx), (_, data)| {
                     (rx + data.received(), tx + data.transmitted())
                 });
 
-                let mut disk_io_lines = vec![format!("{:<8} {:>10} {:>10}", "磁盘", "读取", "写入")];
-                disk_io_lines.extend(disks.iter().map(|disk| {
-                    let usage = disk.usage();
-                    format!(
-                        "{} {:>10} {:>10}",
-                        fit_disk_name(&disk.name().to_string_lossy()),
-                        format_rate(usage.read_bytes),
-                        format_rate(usage.written_bytes)
-                    )
-                }));
+                let disk_options = disks
+                    .iter()
+                    .map(|disk| shared::DiskOption {
+                        id: disk_id(disk),
+                        name: disk_name(disk),
+                    })
+                    .collect::<Vec<_>>();
 
-                (cpu, mem, disk, format_rate(rx), format_rate(tx), disk_io_lines.join("\n"))
+                if let Ok(mut catalog) = shared::disk_catalog.lock() {
+                    *catalog = disk_options.clone();
+                }
+
+                let selected_ids = {
+                    let mut settings = shared::app_settings.lock().unwrap();
+                    settings
+                        .monitored_disk_ids
+                        .retain(|id| disk_options.iter().any(|disk| disk.id == *id));
+                    settings.monitored_disk_ids.clone()
+                };
+
+                let (total_read, total_write, monitored) = disks.iter().fold(
+                    (0u64, 0u64, Vec::new()),
+                    |(read_sum, write_sum, mut entries), disk| {
+                        let usage = disk.usage();
+                        let id = disk_id(disk);
+                        if selected_ids.iter().any(|selected| selected == &id) {
+                            let percent = if disk.total_space() == 0 {
+                                0.0
+                            } else {
+                                ((disk.total_space().saturating_sub(disk.available_space())) as f32 / disk.total_space() as f32) * 100.0
+                            };
+                            entries.push(ui::DiskIoEntry {
+                                id: id.into(),
+                                name: disk_name(disk).into(),
+                                usage: percent,
+                                read: format_rate(usage.read_bytes).into(),
+                                write: format_rate(usage.written_bytes).into(),
+                            });
+                        }
+                        (
+                            read_sum + usage.read_bytes,
+                            write_sum + usage.written_bytes,
+                            entries,
+                        )
+                    },
+                );
+
+                (
+                    cpu,
+                    mem,
+                    disk_usage,
+                    format_rate(rx),
+                    format_rate(tx),
+                    format_rate(total_read),
+                    format_rate(total_write),
+                    monitored,
+                    disk_options,
+                )
             };
 
             let weak = weak.clone();
@@ -82,7 +155,15 @@ pub async fn start_monitor(view: &ui::AppWindow) {
                 store.set_disk_usage(disk_usage);
                 store.set_network_rx(network_rx.into());
                 store.set_network_tx(network_tx.into());
-                store.set_disk_io_summary(disk_io_summary.into());
+                store.set_disk_total_read(disk_total_read.into());
+                store.set_disk_total_write(disk_total_write.into());
+                store.set_monitored_disks(ModelRc::from(monitored_disks.as_slice()));
+
+                let disk_menu = ui::use_view::<crate::view::DiskMenuView>();
+                crate::view::sync_disk_menu_entries(&disk_menu.ui, &disk_options);
+
+                let submenu = ui::use_view::<crate::view::SubmenuView>();
+                submenu.ui.set_has_monitored_disks(!monitored_disks.is_empty());
             });
 
             tokio::time::sleep(std::time::Duration::from_millis(1500)).await;

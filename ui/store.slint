@@ -1,14 +1,31 @@
-﻿export global Store {
+export struct DiskIoEntry {
+    id: string,
+    name: string,
+    usage: float,
+    read: string,
+    write: string,
+}
+
+export struct DiskMenuEntry {
+    id: string,
+    name: string,
+    checked: bool,
+}
+
+export global Store {
     in-out property <float> cpu_usage: 0;
     in-out property <float> memory_usage: 0;
     in-out property <float> disk_usage: 0;
-    in-out property <string> network_rx: "0 B/s";
-    in-out property <string> network_tx: "0 B/s";
-    in-out property <string> disk_io_summary: "磁盘        读取        写入";
+    in-out property <string> disk_total_read: "0.01 KB";
+    in-out property <string> disk_total_write: "0.01 KB";
+    in-out property <string> network_rx: "0.01 KB";
+    in-out property <string> network_tx: "0.01 KB";
+    in-out property <[DiskIoEntry]> monitored_disks: [];
+    in-out property <string> computer_name: "Unknown";
 
     in-out property <bool> show_cpu: true;
     in-out property <bool> show_memory: true;
-    in-out property <bool> show_disk_usage: true;
-    in-out property <bool> show_network: true;
+    in-out property <bool> show_disk_total: true;
     in-out property <bool> show_disk_io: true;
+    in-out property <bool> show_network: true;
 }

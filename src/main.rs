@@ -38,6 +38,7 @@ async fn main() -> Result<()> {
 
     let _ = ui::use_view::<view::MenuView>();
     let _ = ui::use_view::<view::SubmenuView>();
+    let _ = ui::use_view::<view::DiskMenuView>();
 
     hook::install_win32_hook(|_n_code: i32, w_param: WPARAM, _l_param: LPARAM|{
         let hwnd = HWND(w_param.0 as _);

@@ -1,5 +1,7 @@
-﻿import { Palette } from "std-widgets.slint";
+import { Theme, ThemeMode } from "theme.slint";
 import { MenuItem } from "widget/menu-item.slint";
+
+export enum SubmenuKind { theme, display, window }
 
 export component SubmenuWindow inherits Window {
     width: 210px;
@@ -8,24 +10,27 @@ export component SubmenuWindow inherits Window {
     no-frame: true;
     always-on-top: true;
 
-    in-out property <int> mode: 0;
-    in-out property <int> theme_state: 0;
+    in-out property <SubmenuKind> kind: SubmenuKind.theme;
+    in-out property <ThemeMode> theme_state: ThemeMode.dark;
     in-out property <bool> show_cpu_state: true;
     in-out property <bool> show_memory_state: true;
-    in-out property <bool> show_disk_usage_state: true;
-    in-out property <bool> show_network_state: true;
+    in-out property <bool> show_disk_total_state: true;
     in-out property <bool> show_disk_io_state: true;
+    in-out property <bool> show_network_state: true;
+    in-out property <bool> has_monitored_disks: false;
     in-out property <bool> always_on_top_state: true;
     in-out property <bool> snap_to_edge_state: true;
     in-out property <float> opacity_value: 0.9;
 
     callback close_menu();
-    callback set_theme(int);
+    callback set_theme(ThemeMode);
     callback set_show_cpu(bool);
     callback set_show_memory(bool);
-    callback set_show_disk_usage(bool);
-    callback set_show_network(bool);
+    callback set_show_disk_total(bool);
     callback set_show_disk_io(bool);
+    callback set_show_network(bool);
+    callback show_disk_monitor_submenu(length);
+    callback hide_disk_monitor_submenu();
     callback set_always_on_top(bool);
     callback set_snap_to_edge(bool);
     callback set_opacity(float);
@@ -34,138 +39,157 @@ export component SubmenuWindow inherits Window {
         width: 100%;
         height: 100%;
         border-radius: 10px;
-        background: Palette.background;
+        background: Theme.menu-bg;
         border-width: 1px;
-        border-color: Palette.border;
+        border-color: Theme.menu-border;
         drop-shadow-blur: 14px;
 
         content := VerticalLayout {
             padding: 8px;
             spacing: 2px;
 
-            if (root.mode == 1) : MenuItem {
+            if (root.kind == SubmenuKind.theme) : MenuItem {
                 text: "深色";
-                checked: root.theme_state == 0;
+                checked: root.theme_state == ThemeMode.dark;
                 clicked => {
-                    root.theme_state = 0;
-                    root.set_theme(0);
+                    root.theme_state = ThemeMode.dark;
+                    root.set_theme(ThemeMode.dark);
                     root.close_menu();
                 }
             }
-            if (root.mode == 1) : MenuItem {
+            if (root.kind == SubmenuKind.theme) : MenuItem {
                 text: "浅色";
-                checked: root.theme_state == 1;
+                checked: root.theme_state == ThemeMode.light;
                 clicked => {
-                    root.theme_state = 1;
-                    root.set_theme(1);
+                    root.theme_state = ThemeMode.light;
+                    root.set_theme(ThemeMode.light);
                     root.close_menu();
                 }
             }
 
-            if (root.mode == 2) : MenuItem {
+            if (root.kind == SubmenuKind.display) : MenuItem {
                 text: "CPU";
                 checked: root.show_cpu_state;
+                hovered => { root.hide_disk_monitor_submenu(); }
                 clicked => {
                     root.show_cpu_state = !root.show_cpu_state;
                     root.set_show_cpu(root.show_cpu_state);
                     root.close_menu();
                 }
             }
-            if (root.mode == 2) : MenuItem {
+            if (root.kind == SubmenuKind.display) : MenuItem {
                 text: "内存";
                 checked: root.show_memory_state;
+                hovered => { root.hide_disk_monitor_submenu(); }
                 clicked => {
                     root.show_memory_state = !root.show_memory_state;
                     root.set_show_memory(root.show_memory_state);
                     root.close_menu();
                 }
             }
-            if (root.mode == 2) : MenuItem {
+            if (root.kind == SubmenuKind.display) : MenuItem {
                 text: "磁盘";
-                checked: root.show_disk_usage_state;
+                checked: root.show_disk_total_state;
+                hovered => { root.hide_disk_monitor_submenu(); }
                 clicked => {
-                    root.show_disk_usage_state = !root.show_disk_usage_state;
-                    root.set_show_disk_usage(root.show_disk_usage_state);
+                    root.show_disk_total_state = !root.show_disk_total_state;
+                    root.set_show_disk_total(root.show_disk_total_state);
                     root.close_menu();
                 }
             }
-            if (root.mode == 2) : MenuItem {
-                text: "流量";
-                checked: root.show_network_state;
-                clicked => {
-                    root.show_network_state = !root.show_network_state;
-                    root.set_show_network(root.show_network_state);
-                    root.close_menu();
-                }
+            if (root.kind == SubmenuKind.display) : disk_monitor_item := MenuItem {
+                text: "磁盘监控";
+                checked: root.has_monitored_disks;
+                has_submenu: true;
+                hovered => { root.show_disk_monitor_submenu(disk_monitor_item.y); }
+                clicked => {}
             }
-            if (root.mode == 2) : MenuItem {
-                text: "磁盘读写";
+            if (root.kind == SubmenuKind.display) : MenuItem {
+                text: "磁盘IO";
                 checked: root.show_disk_io_state;
+                hovered => { root.hide_disk_monitor_submenu(); }
                 clicked => {
                     root.show_disk_io_state = !root.show_disk_io_state;
                     root.set_show_disk_io(root.show_disk_io_state);
                     root.close_menu();
                 }
             }
+            if (root.kind == SubmenuKind.display) : MenuItem {
+                text: "流量";
+                checked: root.show_network_state;
+                hovered => { root.hide_disk_monitor_submenu(); }
+                clicked => {
+                    root.show_network_state = !root.show_network_state;
+                    root.set_show_network(root.show_network_state);
+                    root.close_menu();
+                }
+            }
 
-            if (root.mode == 3) : MenuItem {
+            if (root.kind == SubmenuKind.window) : MenuItem {
                 text: "总是置顶";
                 checked: root.always_on_top_state;
+                hovered => { root.hide_disk_monitor_submenu(); }
                 clicked => {
                     root.always_on_top_state = !root.always_on_top_state;
                     root.set_always_on_top(root.always_on_top_state);
                     root.close_menu();
                 }
             }
-            if (root.mode == 3) : MenuItem {
+            if (root.kind == SubmenuKind.window) : MenuItem {
                 text: "靠边吸附";
                 checked: root.snap_to_edge_state;
+                hovered => { root.hide_disk_monitor_submenu(); }
                 clicked => {
                     root.snap_to_edge_state = !root.snap_to_edge_state;
                     root.set_snap_to_edge(root.snap_to_edge_state);
                     root.close_menu();
                 }
             }
-            if (root.mode == 3) : Rectangle { height: 1px; background: Palette.border; }
-            if (root.mode == 3) : MenuItem {
+            if (root.kind == SubmenuKind.window) : Rectangle { height: 1px; background: Theme.menu-border; }
+            if (root.kind == SubmenuKind.window) : MenuItem {
                 text: "透明度 100%";
                 checked: root.opacity_value == 1.0;
+                hovered => { root.hide_disk_monitor_submenu(); }
                 clicked => {
                     root.opacity_value = 1.0;
                     root.set_opacity(1.0);
                     root.close_menu();
                 }
             }
-            if (root.mode == 3) : MenuItem {
+            if (root.kind == SubmenuKind.window) : MenuItem {
                 text: "透明度 90%";
                 checked: root.opacity_value == 0.9;
+                hovered => { root.hide_disk_monitor_submenu(); }
                 clicked => {
                     root.opacity_value = 0.9;
                     root.set_opacity(0.9);
                     root.close_menu();
                 }
             }
-            if (root.mode == 3) : MenuItem {
+            if (root.kind == SubmenuKind.window) : MenuItem {
                 text: "透明度 75%";
                 checked: root.opacity_value == 0.75;
+                hovered => { root.hide_disk_monitor_submenu(); }
                 clicked => {
                     root.opacity_value = 0.75;
                     root.set_opacity(0.75);
                     root.close_menu();
                 }
             }
-            if (root.mode == 3) : MenuItem {
+            if (root.kind == SubmenuKind.window) : MenuItem {
                 text: "透明度 60%";
                 checked: root.opacity_value == 0.6;
+                hovered => { root.hide_disk_monitor_submenu(); }
                 clicked => {
                     root.opacity_value = 0.6;
                     root.set_opacity(0.6);
                     root.close_menu();
                 }
             }
-            if (root.mode == 3) : MenuItem {
+            if (root.kind == SubmenuKind.window) : MenuItem {
                 text: "透明度 45%";
                 checked: root.opacity_value == 0.45;
+                hovered => { root.hide_disk_monitor_submenu(); }
                 clicked => {
                     root.opacity_value = 0.45;
                     root.set_opacity(0.45);

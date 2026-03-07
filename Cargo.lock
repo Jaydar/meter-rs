@@ -2675,14 +2675,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "memory-module-sys"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bbdce2925c681860b08875119254fb5543dbf6337c56ff93afebeed9c686da3"
+name = "meter-rs"
+version = "0.1.0"
 dependencies = [
- "cc",
- "libc",
- "winapi",
+ "anyhow",
+ "i-slint-backend-winit",
+ "raw-window-handle",
+ "slint",
+ "slint-build",
+ "sysinfo",
+ "tokio",
+ "windows 0.62.2",
+ "winit",
 ]
 
 [[package]]
@@ -2710,23 +2714,6 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "mon-rs"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "i-slint-backend-winit",
- "memory-module-sys",
- "raw-window-handle",
- "rayon",
- "slint",
- "slint-build",
- "sysinfo",
- "tokio",
- "windows 0.62.2",
- "winit",
 ]
 
 [[package]]
