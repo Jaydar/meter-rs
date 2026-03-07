@@ -33,7 +33,7 @@ jobs:
       - name: Build both Windows targets
         shell: powershell
         env:
-          PATH: C:\msys64\mingw64\bin;${{ env.PATH }}
+          PATH: C:\msys64\mingw64\bin;${{ runner.temp }};C:\hostedtoolcache\windows\Rust\stable-x64\bin;${{ env.Path }}
         run: cargo build-win
 
       - name: Prepare release assets
