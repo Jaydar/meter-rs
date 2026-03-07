@@ -1,8 +1,9 @@
-name: Build Windows Release
+name: Build And Publish Windows
 
 on:
-  release:
-    types: [published]
+  push:
+    branches:
+      - master
   workflow_dispatch:
 
 permissions:
@@ -42,10 +43,14 @@ jobs:
           Copy-Item target\x86_64-pc-windows-msvc\release\meter-rs.exe dist\meter-rs-msvs.exe
           Copy-Item target\x86_64-pc-windows-gnu\release\meter-rs.exe dist\meter-rs-gnu.exe
 
-      - name: Upload release assets
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+      - name: Publish rolling release
+        uses: ncipollo/release-action@v1
         with:
-          files: |
-            dist/meter-rs-msvs.exe
-            dist/meter-rs-gnu.exe
+          tag: master-build
+          name: Master Build
+          body: Automated build from the latest commit on master.
+          prerelease: true
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true
+          artifacts: dist/meter-rs-msvs.exe,dist/meter-rs-gnu.exe
