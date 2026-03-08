@@ -30,10 +30,12 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc,x86_64-pc-windows-gnu
 
+      - name: Add MinGW to PATH
+        shell: powershell
+        run: Add-Content -Path $env:GITHUB_PATH -Value 'C:\msys64\mingw64\bin'
+
       - name: Build both Windows targets
         shell: powershell
-        env:
-          PATH: C:\msys64\mingw64\bin;${{ runner.temp }};C:\hostedtoolcache\windows\Rust\stable-x64\bin;${{ env.Path }}
         run: cargo build-win
 
       - name: Prepare release assets
