@@ -58,7 +58,7 @@ jobs:
           tag: ${{ steps.version.outputs.value }}
           name: ${{ steps.version.outputs.value }}
           body: Automated build from the latest commit on master.
-          prerelease: true
+          prerelease: false
           allowUpdates: true
           removeArtifacts: true
           replacesArtifacts: true
