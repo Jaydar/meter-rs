@@ -3,7 +3,7 @@ import { DiskMenuEntry } from "store.slint";
 import { MenuItem } from "widget/menu-item.slint";
 
 export component DiskMenuWindow inherits Window {
-    width: 220px;
+    width: 180px;
     height: content.preferred-height;
     background: transparent;
     no-frame: true;
@@ -15,7 +15,7 @@ export component DiskMenuWindow inherits Window {
     callback toggle_disk(string);
 
     Rectangle {
-        width: 100%;
+        width: 180px;
         height: 100%;
         border-radius: 10px;
         background: Theme.menu-bg;
