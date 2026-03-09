@@ -15,9 +15,8 @@ use windows::Win32::{
     UI::WindowsAndMessaging::{
         GWL_EXSTYLE, GetCursorPos, GetForegroundWindow, GetWindowLongPtrW, GetWindowRect,
         HWND_BROADCAST, LWA_ALPHA, SC_MONITORPOWER, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE,
-        SWP_NOSIZE, SWP_NOZORDER, SendMessageW,
-        SetLayeredWindowAttributes, SetWindowLongPtrW, SetWindowPos, WM_SYSCOMMAND,
-        WS_EX_LAYERED, WS_EX_TRANSPARENT,
+        SWP_NOSIZE, SWP_NOZORDER, SendMessageW, SetLayeredWindowAttributes, SetWindowLongPtrW,
+        SetWindowPos, WM_SYSCOMMAND, WS_EX_LAYERED, WS_EX_TRANSPARENT,
     },
 };
 
@@ -36,7 +35,7 @@ pub fn get_tokio_runtime(mask: usize, thread_num: usize) -> Runtime {
         .expect("Failed to build Tokio runtime")
 }
 
-/// 从 Slint 窗口句柄里取出原生 HWND。
+/// 从 Slint 窗口句柄中取出原生 HWND。
 pub fn get_hwnd_by_window_handle<C: ComponentHandle>(view: &C) -> Option<HWND> {
     let mut hwnd_res = None;
     view.window().with_winit_window(|winit_win| {
@@ -49,7 +48,7 @@ pub fn get_hwnd_by_window_handle<C: ComponentHandle>(view: &C) -> Option<HWND> {
     hwnd_res
 }
 
-/// 获取指定窗口所在显示器的工作区。
+/// 获取窗口所在显示器的工作区。
 pub fn get_work_area(hwnd: usize) -> Option<(i32, i32, i32, i32)> {
     let hwnd = HWND(hwnd as _);
     let h_monitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
@@ -75,7 +74,7 @@ pub fn get_current_mouse_position() -> POINT {
     point
 }
 
-/// 计算主菜单显示位置，尽量贴近鼠标且不超出工作区。
+/// 计算主菜单位置，尽量贴近鼠标且不超出工作区。
 pub fn get_menu_position(size: (i32, i32), work_area: (i32, i32, i32, i32)) -> (i32, i32) {
     let (wa_left, wa_top, wa_right, wa_bottom) = work_area;
     let mouse = get_current_mouse_position();
@@ -98,7 +97,7 @@ pub fn get_menu_position(size: (i32, i32), work_area: (i32, i32, i32, i32)) -> (
     (x, y)
 }
 
-/// 计算二级菜单显示位置，避免遮挡一级菜单并限制在工作区内。
+/// 计算二级菜单位置，避免遮挡一级菜单。
 pub fn get_submenu_position(
     main_pos: (i32, i32),
     main_size: (i32, i32),
@@ -118,7 +117,7 @@ pub fn get_submenu_position(
     (x, y)
 }
 
-/// 判断指定窗口是不是当前前台窗口。
+/// 判断窗口是否在前台。
 pub fn is_window_foreground(hwnd: HWND) -> bool {
     unsafe { GetForegroundWindow() == hwnd }
 }
@@ -159,10 +158,14 @@ pub fn set_window_opacity(hwnd: usize, opacity: f32) {
     }
 }
 
-/// 设置当前线程的防休眠状态。
+/// 设置当前线程的禁止休眠状态。
 pub fn set_prevent_sleep(enable: bool) {
     unsafe {
-        let flags = if enable { ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED } else { ES_CONTINUOUS };
+        let flags = if enable {
+            ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED
+        } else {
+            ES_CONTINUOUS
+        };
         let _ = SetThreadExecutionState(flags);
     }
 }
@@ -179,11 +182,27 @@ pub fn turn_off_display() {
     }
 }
 
+/// 重启 Windows 资源管理器。
+pub fn restart_explorer() {
+    let _ = Command::new("taskkill")
+        .creation_flags(CREATE_NO_WINDOW)
+        .args(["/F", "/IM", "explorer.exe"])
+        .status();
+    let _ = Command::new("explorer.exe")
+        .creation_flags(CREATE_NO_WINDOW)
+        .spawn();
+}
+
 /// 查询当前用户是否已经设置开机自启。
 pub fn is_auto_start() -> bool {
     let app_name = "Meter RS";
     let status = reg_command()
-        .args(["query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", app_name])
+        .args([
+            "query",
+            r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+            "/v",
+            app_name,
+        ])
         .output();
     match status {
         Ok(output) => output.status.success(),
@@ -213,13 +232,21 @@ pub fn set_auto_start(enable: bool) {
         }
     } else {
         let _ = reg_command()
-            .args(["delete", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", app_name, "/f"])
+            .args([
+                "delete",
+                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                "/v",
+                app_name,
+                "/f",
+            ])
             .status();
     }
 }
 
 /// 从显示器句柄读取工作区矩形。
-fn get_work_area_from_monitor(h_monitor: windows::Win32::Graphics::Gdi::HMONITOR) -> Option<(i32, i32, i32, i32)> {
+fn get_work_area_from_monitor(
+    h_monitor: windows::Win32::Graphics::Gdi::HMONITOR,
+) -> Option<(i32, i32, i32, i32)> {
     let mut mi = MONITORINFO::default();
     mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
     if unsafe { GetMonitorInfoW(h_monitor, &mut mi).as_bool() } {

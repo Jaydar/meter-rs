@@ -83,6 +83,7 @@ impl MenuView {
             }
         });
         self.ui.on_turn_off_display(move || tools::turn_off_display());
+        self.ui.on_restart_explorer(move || tools::restart_explorer());
         self.ui.on_show_theme_submenu(move |offset_y| show_submenu(ui::SubmenuKind::Theme, offset_y as i32));
         self.ui.on_show_display_submenu(move |offset_y| show_submenu(ui::SubmenuKind::Display, offset_y as i32));
         self.ui.on_show_window_submenu(move |offset_y| show_submenu(ui::SubmenuKind::Window, offset_y as i32));
@@ -181,6 +182,7 @@ impl SubmenuView {
             let submenu = ui::use_view::<crate::view::SubmenuView>();
             submenu.ui.set_theme_state(theme_mode);
         });
+        self.ui.on_set_show_hostname(move |value| update_visibility(|settings| settings.show_hostname = value));
         self.ui.on_set_show_cpu(move |value| update_visibility(|settings| settings.show_cpu = value));
         self.ui.on_set_show_memory(move |value| update_visibility(|settings| settings.show_memory = value));
         self.ui.on_set_show_disk_total(move |value| update_visibility(|settings| settings.show_disk_total = value));
@@ -197,6 +199,7 @@ impl SubmenuView {
     pub fn sync_from_settings(&self) {
         let settings = shared::app_settings.lock().unwrap().clone();
         self.ui.set_theme_state(app_view::to_ui_theme_mode(settings.theme));
+        self.ui.set_show_hostname_state(settings.show_hostname);
         self.ui.set_show_cpu_state(settings.show_cpu);
         self.ui.set_show_memory_state(settings.show_memory);
         self.ui.set_show_disk_total_state(settings.show_disk_total);

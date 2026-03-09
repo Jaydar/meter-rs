@@ -19,6 +19,7 @@ export component MenuWindow inherits Window {
     callback set_mouse_passthrough(bool);
     callback set_prevent_sleep(bool);
     callback turn_off_display();
+    callback restart_explorer();
     callback show_theme_submenu(length);
     callback show_display_submenu(length);
     callback show_window_submenu(length);
@@ -90,10 +91,17 @@ export component MenuWindow inherits Window {
             }
             MenuItem {
                 text: "关闭显示器";
-                icon: "\u{f0ed}";
                 hovered => { root.hide_submenu(); }
                 clicked => {
                     root.turn_off_display();
+                    root.close_menu();
+                }
+            }
+            MenuItem {
+                text: "重启资源管理器";
+                hovered => { root.hide_submenu(); }
+                clicked => {
+                    root.restart_explorer();
                     root.close_menu();
                 }
             }

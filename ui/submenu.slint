@@ -12,6 +12,7 @@ export component SubmenuWindow inherits Window {
 
     in-out property <SubmenuKind> kind: SubmenuKind.theme;
     in-out property <ThemeMode> theme_state: ThemeMode.dark;
+    in-out property <bool> show_hostname_state: false;
     in-out property <bool> show_cpu_state: true;
     in-out property <bool> show_memory_state: true;
     in-out property <bool> show_disk_total_state: true;
@@ -24,6 +25,7 @@ export component SubmenuWindow inherits Window {
 
     callback close_menu();
     callback set_theme(ThemeMode);
+    callback set_show_hostname(bool);
     callback set_show_cpu(bool);
     callback set_show_memory(bool);
     callback set_show_disk_total(bool);
@@ -67,6 +69,16 @@ export component SubmenuWindow inherits Window {
                 }
             }
 
+            if (root.kind == SubmenuKind.display) : MenuItem {
+                text: "主机名";
+                checked: root.show_hostname_state;
+                hovered => { root.hide_disk_monitor_submenu(); }
+                clicked => {
+                    root.show_hostname_state = !root.show_hostname_state;
+                    root.set_show_hostname(root.show_hostname_state);
+                    root.close_menu();
+                }
+            }
             if (root.kind == SubmenuKind.display) : MenuItem {
                 text: "CPU";
                 checked: root.show_cpu_state;

@@ -71,7 +71,7 @@ export component AppWindow inherits Window {
                     letter-spacing: 2px;
                 }
 
-                if (Store.show_cpu || Store.show_memory || Store.show_disk_total) : Rectangle {
+                if (Store.show_hostname || Store.show_cpu || Store.show_memory || Store.show_disk_total) : Rectangle {
                     border-radius: 8px;
                     background: Theme.card-bg;
 
@@ -82,7 +82,7 @@ export component AppWindow inherits Window {
                         padding-bottom: 10px;
                         spacing: 3px;
 
-                        Text {
+                        if (Store.show_hostname) : Text {
                             text: Store.computer_name;
                             color: Theme.sub-title;
                             font-size: 10pt;

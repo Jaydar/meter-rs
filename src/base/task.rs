@@ -24,9 +24,18 @@ fn disk_id(disk: &sysinfo::Disk) -> String {
     disk.mount_point().to_string_lossy().to_string()
 }
 
+fn disk_letter(disk: &sysinfo::Disk) -> String {
+    disk.mount_point().to_string_lossy().trim_end_matches('\\').to_string()
+}
+
 fn disk_name(disk: &sysinfo::Disk) -> String {
-    let name = disk.name().to_string_lossy().to_string();
-    if name.is_empty() { disk_id(disk) } else { name }
+    let letter = disk_letter(disk);
+    let name = disk.name().to_string_lossy().trim().to_string();
+    if name.is_empty() || name.eq_ignore_ascii_case(&letter) {
+        letter
+    } else {
+        format!("{letter} {name}")
+    }
 }
 
 pub async fn start_monitor(view: &ui::AppWindow) {
@@ -37,6 +46,7 @@ pub async fn start_monitor(view: &ui::AppWindow) {
 
     let settings = shared::app_settings.lock().unwrap().clone();
     let store = view.global::<ui::Store>();
+    store.set_show_hostname(settings.show_hostname);
     store.set_show_cpu(settings.show_cpu);
     store.set_show_memory(settings.show_memory);
     store.set_show_disk_total(settings.show_disk_total);

@@ -23,9 +23,10 @@ export global Store {
     in-out property <[DiskIoEntry]> monitored_disks: [];
     in-out property <string> computer_name: "Unknown";
 
+    in-out property <bool> show_hostname: false;
     in-out property <bool> show_cpu: true;
     in-out property <bool> show_memory: true;
     in-out property <bool> show_disk_total: true;
-    in-out property <bool> show_disk_io: true;
-    in-out property <bool> show_network: true;
+    in-out property <bool> show_disk_io: false;
+    in-out property <bool> show_network: false;
 }

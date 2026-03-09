@@ -138,6 +138,7 @@ impl AppView {
 
 pub fn apply_store_settings(view: &ui::AppWindow, settings: &shared::AppSettings) {
     let store = view.global::<ui::Store>();
+    store.set_show_hostname(settings.show_hostname);
     store.set_show_cpu(settings.show_cpu);
     store.set_show_memory(settings.show_memory);
     store.set_show_disk_total(settings.show_disk_total);
