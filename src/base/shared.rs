@@ -1,4 +1,4 @@
-﻿#![allow(non_upper_case_globals)]
+#![allow(non_upper_case_globals)]
 
 use std::sync::{LazyLock, Mutex as StdMutex};
 
@@ -15,6 +15,7 @@ pub static disk_catalog: LazyLock<StdMutex<Vec<DiskOption>>> = LazyLock::new(|| 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ThemeKind {
     #[default]
+    System,
     Dark,
     Light,
 }
@@ -53,7 +54,7 @@ pub struct AppSettings {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            theme: ThemeKind::Dark,
+            theme: ThemeKind::System,
             opacity: 0.9,
             auto_start: false,
             show_hostname: false,

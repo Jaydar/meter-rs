@@ -1,0 +1,125 @@
+﻿import "../assets/remixicon.ttf";
+import { Theme } from "../theme.slint";
+
+export component AboutWindow inherits Window {
+    width: 420px;
+    height: 320px;
+    background: transparent;
+    no-frame: true;
+    always-on-top: true;
+
+    in-out property <string> app_name: "Meter RS";
+    in-out property <string> version_text: "v0.0.0";
+    in-out property <string> github_url: "https://github.com/Jaydar/meter-rs";
+    in-out property <string> oss_notice:
+        "使用到的开源包:\n- slint / i-slint-backend-winit\n- tokio\n- sysinfo\n- windows\n- anyhow\n- winit\n- raw-window-handle\n\n请在分发时遵循各依赖许可证要求 (MIT/Apache-2.0 等)。";
+
+    callback close_about();
+    callback open_github();
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: 10px;
+        background: Theme.menu-bg;
+        border-width: 1px;
+        border-color: Theme.menu-border;
+        drop-shadow-blur: 16px;
+
+        VerticalLayout {
+            padding: 12px;
+            spacing: 8px;
+
+            HorizontalLayout {
+                Text {
+                    text: root.app_name;
+                    color: Theme.title;
+                    font-size: 12pt;
+                    font-weight: 800;
+                }
+
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+
+                close_btn := Rectangle {
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 4px;
+                    background: close_ta.has-hover ? Theme.menu-hover-bg : transparent;
+
+                    close_ta := TouchArea {
+                        mouse-cursor: MouseCursor.pointer;
+                        clicked => { root.close_about(); }
+                    }
+
+                    Text {
+                        width: 100%;
+                        height: 100%;
+                        text: "\u{eb99}";
+                        color: close_ta.has-hover ? Theme.menu-hover-fg : Theme.text;
+                        font-size: 14px;
+                        font-family: "remixicon";
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+
+            Text {
+                text: root.version_text;
+                color: Theme.sub-title;
+                font-size: 9pt;
+            }
+
+            github_link := Rectangle {
+                height: 26px;
+                border-radius: 6px;
+                background: github_ta.has-hover ? Theme.menu-hover-bg : transparent;
+
+                github_ta := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+                    clicked => { root.open_github(); }
+                }
+
+                HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+
+                    Text {
+                        text: root.github_url;
+                        color: github_ta.has-hover ? Theme.menu-hover-fg : Theme.text-low;
+                        font-size: 9pt;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Rectangle { height: 1px; background: Theme.menu-border; }
+
+            Text {
+                text: "开源声明";
+                color: Theme.sub-title;
+                font-size: 10pt;
+                font-weight: 700;
+            }
+
+            Rectangle {
+                border-radius: 8px;
+                background: Theme.card-bg;
+                vertical-stretch: 1;
+
+                Text {
+                    x: 10px;
+                    y: 10px;
+                    width: parent.width - 20px;
+                    height: parent.height - 20px;
+                    text: root.oss_notice;
+                    color: Theme.text;
+                    font-size: 9pt;
+                    wrap: word-wrap;
+                    vertical-alignment: top;
+                }
+            }
+        }
+    }
+}
+

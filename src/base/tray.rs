@@ -1,4 +1,4 @@
-﻿use std::thread;
+use std::thread;
 
 use windows::{
     core::w,
@@ -89,7 +89,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
             let event = lparam.0 as u32;
             if event == WM_RBUTTONUP || event == WM_CONTEXTMENU {
                 let _ = slint::invoke_from_event_loop(|| {
-                    crate::view::show_context_menu();
+                    crate::view::MenuView::show_context_menu();
                 });
             }
             LRESULT(0)

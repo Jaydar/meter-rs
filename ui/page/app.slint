@@ -1,10 +1,11 @@
-import { MenuWindow } from "menu.slint";
-import { SubmenuWindow } from "submenu.slint";
-import { DiskMenuWindow } from "disk-menu.slint";
-import { Theme } from "theme.slint";
-import { Store } from "store.slint";
+import { MenuWindow } from "menu/menu.slint";
+import { SubmenuWindow } from "menu/submenu.slint";
+import { DiskMenuWindow } from "menu/disk-menu.slint";
+import { AboutWindow } from "about.slint";
+import { Theme } from "../theme.slint";
+import { Store } from "../store.slint";
 
-export { MenuWindow, SubmenuWindow, DiskMenuWindow, Store, Theme }
+export { MenuWindow, SubmenuWindow, DiskMenuWindow, AboutWindow, Store, Theme }
 
 export component AppWindow inherits Window {
     title: "Meter RS";

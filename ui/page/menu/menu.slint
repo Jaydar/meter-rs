@@ -1,5 +1,5 @@
-import "./assets/remixicon.ttf";
-import { Theme } from "theme.slint";
+﻿import "../../assets/remixicon.ttf";
+import { Theme } from "../../theme.slint";
 import { MenuItem } from "widget/menu-item.slint";
 
 export component MenuWindow inherits Window {
@@ -24,6 +24,7 @@ export component MenuWindow inherits Window {
     callback show_display_submenu(length);
     callback show_window_submenu(length);
     callback hide_submenu();
+    callback show_about();
 
     Rectangle {
         width: 100%;
@@ -107,6 +108,16 @@ export component MenuWindow inherits Window {
             }
 
             Rectangle { height: 1px; background: Theme.menu-border; }
+
+            MenuItem {
+                text: "关于 Meter RS";
+                icon: "\u{ec51}";
+                hovered => { root.hide_submenu(); }
+                clicked => {
+                    root.show_about();
+                    root.close_menu();
+                }
+            }
 
             MenuItem {
                 text: "退出程序";

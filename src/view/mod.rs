@@ -1,5 +1,8 @@
-﻿mod app_view;
+mod app_view;
 pub use app_view::AppView;
 
-mod menu_view;
-pub use menu_view::{show_context_menu, sync_disk_menu_entries, DiskMenuView, MenuView, SubmenuView};
+mod about_view;
+pub use about_view::AboutView;
+
+mod menu;
+pub use menu::{DiskMenuView, MenuView, SubmenuView};

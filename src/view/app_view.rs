@@ -2,14 +2,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use slint::{ComponentHandle, RenderingState};
 
-use crate::{base, shared, tools, ui, view};
+use crate::{base, shared, tools, ui, view::MenuView};
 
 pub struct AppView {
     pub ui: ui::AppWindow,
 }
-
-unsafe impl Send for AppView {}
-unsafe impl Sync for AppView {}
 
 impl Default for AppView {
     fn default() -> Self {
@@ -36,8 +33,8 @@ impl AppView {
                     RenderingState::BeforeRendering if !initialized.swap(true, Ordering::SeqCst) => {
                         if let Some(ui) = weak.upgrade() {
                             let settings = shared::app_settings.lock().unwrap().clone();
-                            apply_theme(&ui, settings.theme);
-                            apply_store_settings(&ui, &settings);
+                            Self::apply_theme(&ui, settings.theme);
+                            Self::apply_store_settings(&ui, &settings);
                             ui.set_always_on_top_state(settings.always_on_top);
                             tools::set_prevent_sleep(settings.prevent_sleep);
 
@@ -71,11 +68,7 @@ impl AppView {
 
         self.ui.on_win_move({
             let weak = weak.clone();
-            move |delta_x, delta_y| {
-                let threshold = 20.0;
-                if delta_x.abs() > threshold && delta_y.abs() > threshold {
-                    return;
-                }
+            move |delta_x, delta_y| {     
                 if let Some(view_inst) = weak.upgrade() {
                     let window = view_inst.window();
                     let scale_factor = window.scale_factor();
@@ -129,38 +122,40 @@ impl AppView {
         });
 
         self.ui.on_show_menu(move |_, _| {
-            view::show_context_menu();
+            MenuView::show_context_menu();
         });
 
         self
     }
-}
 
-pub fn apply_store_settings(view: &ui::AppWindow, settings: &shared::AppSettings) {
-    let store = view.global::<ui::Store>();
-    store.set_show_hostname(settings.show_hostname);
-    store.set_show_cpu(settings.show_cpu);
-    store.set_show_memory(settings.show_memory);
-    store.set_show_disk_total(settings.show_disk_total);
-    store.set_show_disk_io(settings.show_disk_io);
-    store.set_show_network(settings.show_network);
-}
-
-pub fn apply_theme(view: &ui::AppWindow, theme: shared::ThemeKind) {
-    let theme_global = view.global::<ui::Theme>();
-    theme_global.set_mode(to_ui_theme_mode(theme));
-}
-
-pub fn to_ui_theme_mode(theme: shared::ThemeKind) -> ui::ThemeMode {
-    match theme {
-        shared::ThemeKind::Dark => ui::ThemeMode::Dark,
-        shared::ThemeKind::Light => ui::ThemeMode::Light,
+    pub fn apply_store_settings(view: &ui::AppWindow, settings: &shared::AppSettings) {
+        let store = view.global::<ui::Store>();
+        store.set_show_hostname(settings.show_hostname);
+        store.set_show_cpu(settings.show_cpu);
+        store.set_show_memory(settings.show_memory);
+        store.set_show_disk_total(settings.show_disk_total);
+        store.set_show_disk_io(settings.show_disk_io);
+        store.set_show_network(settings.show_network);
     }
-}
 
-pub fn from_ui_theme_mode(theme: ui::ThemeMode) -> shared::ThemeKind {
-    match theme {
-        ui::ThemeMode::Dark => shared::ThemeKind::Dark,
-        ui::ThemeMode::Light => shared::ThemeKind::Light,
+    pub fn apply_theme(view: &ui::AppWindow, theme: shared::ThemeKind) {
+        let theme_global = view.global::<ui::Theme>();
+        theme_global.set_mode(Self::to_ui_theme_mode(theme));
+    }
+
+    pub fn to_ui_theme_mode(theme: shared::ThemeKind) -> ui::ThemeMode {
+        match theme {
+            shared::ThemeKind::System => ui::ThemeMode::System,
+            shared::ThemeKind::Dark => ui::ThemeMode::Dark,
+            shared::ThemeKind::Light => ui::ThemeMode::Light,
+        }
+    }
+
+    pub fn from_ui_theme_mode(theme: ui::ThemeMode) -> shared::ThemeKind {
+        match theme {
+            ui::ThemeMode::System => shared::ThemeKind::System,
+            ui::ThemeMode::Dark => shared::ThemeKind::Dark,
+            ui::ThemeMode::Light => shared::ThemeKind::Light,
+        }
     }
 }

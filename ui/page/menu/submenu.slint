@@ -1,4 +1,4 @@
-import { Theme, ThemeMode } from "theme.slint";
+﻿import { Theme, ThemeMode } from "../../theme.slint";
 import { MenuItem } from "widget/menu-item.slint";
 
 export enum SubmenuKind { theme, display, window }
@@ -11,7 +11,7 @@ export component SubmenuWindow inherits Window {
     always-on-top: true;
 
     in-out property <SubmenuKind> kind: SubmenuKind.theme;
-    in-out property <ThemeMode> theme_state: ThemeMode.dark;
+    in-out property <ThemeMode> theme_state: ThemeMode.system;
     in-out property <bool> show_hostname_state: false;
     in-out property <bool> show_cpu_state: true;
     in-out property <bool> show_memory_state: true;
@@ -50,6 +50,15 @@ export component SubmenuWindow inherits Window {
             padding: 8px;
             spacing: 2px;
 
+            if (root.kind == SubmenuKind.theme) : MenuItem {
+                text: "系统";
+                checked: root.theme_state == ThemeMode.system;
+                clicked => {
+                    root.theme_state = ThemeMode.system;
+                    root.set_theme(ThemeMode.system);
+                    root.close_menu();
+                }
+            }
             if (root.kind == SubmenuKind.theme) : MenuItem {
                 text: "深色";
                 checked: root.theme_state == ThemeMode.dark;
@@ -211,3 +220,4 @@ export component SubmenuWindow inherits Window {
         }
     }
 }
+

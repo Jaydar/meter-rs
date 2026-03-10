@@ -22,7 +22,6 @@ use windows::Win32::{
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-/// 创建绑定到指定 CPU 掩码的 Tokio 运行时。
 pub fn get_tokio_runtime(mask: usize, thread_num: usize) -> Runtime {
     Builder::new_multi_thread()
         .worker_threads(thread_num)
@@ -35,7 +34,6 @@ pub fn get_tokio_runtime(mask: usize, thread_num: usize) -> Runtime {
         .expect("Failed to build Tokio runtime")
 }
 
-/// 从 Slint 窗口句柄中取出原生 HWND。
 pub fn get_hwnd_by_window_handle<C: ComponentHandle>(view: &C) -> Option<HWND> {
     let mut hwnd_res = None;
     view.window().with_winit_window(|winit_win| {
@@ -48,14 +46,12 @@ pub fn get_hwnd_by_window_handle<C: ComponentHandle>(view: &C) -> Option<HWND> {
     hwnd_res
 }
 
-/// 获取窗口所在显示器的工作区。
 pub fn get_work_area(hwnd: usize) -> Option<(i32, i32, i32, i32)> {
     let hwnd = HWND(hwnd as _);
     let h_monitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
     get_work_area_from_monitor(h_monitor)
 }
 
-/// 读取窗口当前的真实矩形尺寸。
 pub fn get_size(hwnd: usize) -> Option<(i32, i32, i32, i32)> {
     let hwnd = HWND(hwnd as _);
     let mut rect = RECT::default();
@@ -65,7 +61,6 @@ pub fn get_size(hwnd: usize) -> Option<(i32, i32, i32, i32)> {
     None
 }
 
-/// 获取当前鼠标在屏幕上的坐标。
 pub fn get_current_mouse_position() -> POINT {
     let mut point = POINT { x: 0, y: 0 };
     unsafe {
@@ -74,7 +69,6 @@ pub fn get_current_mouse_position() -> POINT {
     point
 }
 
-/// 计算主菜单位置，尽量贴近鼠标且不超出工作区。
 pub fn get_menu_position(size: (i32, i32), work_area: (i32, i32, i32, i32)) -> (i32, i32) {
     let (wa_left, wa_top, wa_right, wa_bottom) = work_area;
     let mouse = get_current_mouse_position();
@@ -97,7 +91,6 @@ pub fn get_menu_position(size: (i32, i32), work_area: (i32, i32, i32, i32)) -> (
     (x, y)
 }
 
-/// 计算二级菜单位置，避免遮挡一级菜单。
 pub fn get_submenu_position(
     main_pos: (i32, i32),
     main_size: (i32, i32),
@@ -117,12 +110,10 @@ pub fn get_submenu_position(
     (x, y)
 }
 
-/// 判断窗口是否在前台。
 pub fn is_window_foreground(hwnd: HWND) -> bool {
     unsafe { GetForegroundWindow() == hwnd }
 }
 
-/// 设置窗口是否允许鼠标穿透。
 pub fn set_mouse_passthrough(hwnd: usize, enable: bool) {
     let hwnd = HWND(hwnd as _);
     unsafe {
@@ -146,7 +137,6 @@ pub fn set_mouse_passthrough(hwnd: usize, enable: bool) {
     }
 }
 
-/// 设置窗口整体透明度。
 pub fn set_window_opacity(hwnd: usize, opacity: f32) {
     let hwnd = HWND(hwnd as _);
     let alpha = (opacity.clamp(0.2, 1.0) * 255.0).round() as u8;
@@ -158,7 +148,6 @@ pub fn set_window_opacity(hwnd: usize, opacity: f32) {
     }
 }
 
-/// 设置当前线程的禁止休眠状态。
 pub fn set_prevent_sleep(enable: bool) {
     unsafe {
         let flags = if enable {
@@ -170,7 +159,6 @@ pub fn set_prevent_sleep(enable: bool) {
     }
 }
 
-/// 发送系统命令关闭显示器。
 pub fn turn_off_display() {
     unsafe {
         let _ = SendMessageW(
@@ -182,7 +170,6 @@ pub fn turn_off_display() {
     }
 }
 
-/// 重启 Windows 资源管理器。
 pub fn restart_explorer() {
     let _ = Command::new("taskkill")
         .creation_flags(CREATE_NO_WINDOW)
@@ -193,7 +180,6 @@ pub fn restart_explorer() {
         .spawn();
 }
 
-/// 查询当前用户是否已经设置开机自启。
 pub fn is_auto_start() -> bool {
     let app_name = "Meter RS";
     let status = reg_command()
@@ -210,7 +196,6 @@ pub fn is_auto_start() -> bool {
     }
 }
 
-/// 写入或移除当前程序的开机自启项。
 pub fn set_auto_start(enable: bool) {
     let app_name = "Meter RS";
     if enable {
@@ -243,7 +228,6 @@ pub fn set_auto_start(enable: bool) {
     }
 }
 
-/// 从显示器句柄读取工作区矩形。
 fn get_work_area_from_monitor(
     h_monitor: windows::Win32::Graphics::Gdi::HMONITOR,
 ) -> Option<(i32, i32, i32, i32)> {
@@ -255,7 +239,6 @@ fn get_work_area_from_monitor(
     None
 }
 
-/// 创建隐藏控制台窗口的注册表命令。
 fn reg_command() -> Command {
     let mut command = Command::new("reg");
     command.creation_flags(CREATE_NO_WINDOW);

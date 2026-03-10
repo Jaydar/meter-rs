@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "meter-rs"
 version = "0.1.0"
 edition = "2024"
@@ -28,8 +28,9 @@ windows = { version = "0.62.2", features = [
 slint-build = "1.15.1"
 
 [package.metadata.winresource]
+ProductName = "Meter RS"
 OriginalFilename = "meter-rs.exe"
-LegalCopyright = "Copyright ? 2021-2023 Jaydar"
+LegalCopyright = "Copyright © 2025 Jaydar"
 
 [profile.release]
 opt-level = "z"

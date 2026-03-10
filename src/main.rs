@@ -1,4 +1,4 @@
-﻿#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use anyhow::Result;
 use windows::Win32::{Foundation::{HWND, LPARAM, WPARAM}, UI::WindowsAndMessaging::GetClassNameW};
@@ -23,7 +23,7 @@ fn trim_memory() {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    #[cfg(windows)] trim_memory();
+  
 
     if let Ok(mut settings) = shared::app_settings.lock() {
         settings.auto_start = tools::is_auto_start();
@@ -39,6 +39,8 @@ async fn main() -> Result<()> {
     let _ = ui::use_view::<view::MenuView>();
     let _ = ui::use_view::<view::SubmenuView>();
     let _ = ui::use_view::<view::DiskMenuView>();
+    let _ = ui::use_view::<view::AboutView>();
+    let app = ui::use_view::<view::AppView>();
 
     hook::install_win32_hook(|_n_code: i32, w_param: WPARAM, _l_param: LPARAM|{
         let hwnd = HWND(w_param.0 as _);
@@ -57,8 +59,8 @@ async fn main() -> Result<()> {
         }
     });
 
-    let app = ui::use_view::<view::AppView>();
     task::start_monitor(&app.ui).await;
+    #[cfg(windows)] trim_memory();
     app.ui.run().unwrap();
 
     Ok(())
