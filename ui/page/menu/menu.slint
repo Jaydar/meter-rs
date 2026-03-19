@@ -8,10 +8,12 @@ export component MenuWindow inherits Window {
     background: transparent;
     no-frame: true;
     always-on-top: true;
+   
 
     in-out property <bool> auto_start_state: false;
     in-out property <bool> mouse_passthrough_state: false;
     in-out property <bool> prevent_sleep_state: false;
+    in-out property <int> active_submenu: -1;
 
     callback close_menu();
     callback close_app();
@@ -20,13 +22,13 @@ export component MenuWindow inherits Window {
     callback set_prevent_sleep(bool);
     callback turn_off_display();
     callback restart_explorer();
-    callback show_theme_submenu(length);
-    callback show_display_submenu(length);
-    callback show_window_submenu(length);
+    callback show_theme_submenu(length, length);
+    callback show_display_submenu(length, length);
+    callback show_window_submenu(length, length);
     callback hide_submenu();
     callback show_about();
 
-    Rectangle {
+    content := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: 10px;
@@ -34,8 +36,8 @@ export component MenuWindow inherits Window {
         border-width: 1px;
         border-color: Theme.menu-border;
         drop-shadow-blur: 14px;
-
-        content := VerticalLayout {
+        clip: true;
+        VerticalLayout {
             padding: 8px;
             spacing: 2px;
 
@@ -43,19 +45,31 @@ export component MenuWindow inherits Window {
                 text: "主题";
                 icon: "\u{eeaa}";
                 has_submenu: true;
-                hovered => { root.show_theme_submenu(theme_item.y); }
+                active: root.active_submenu == 0;
+                hovered => {
+                    root.active_submenu = 0;
+                    root.show_theme_submenu(theme_item.x, theme_item.y);
+                }
             }
             display_item := MenuItem {
                 text: "显示设置";
                 icon: "\u{ef72}";
                 has_submenu: true;
-                hovered => { root.show_display_submenu(display_item.y); }
+                active: root.active_submenu == 1;
+                hovered => {
+                    root.active_submenu = 1;
+                    root.show_display_submenu(display_item.x, display_item.y);
+                }
             }
             window_item := MenuItem {
                 text: "窗口";
                 icon: "\u{f1d9}";
                 has_submenu: true;
-                hovered => { root.show_window_submenu(window_item.y); }
+                active: root.active_submenu == 2;
+                hovered => {
+                    root.active_submenu = 2;
+                    root.show_window_submenu(window_item.x, window_item.y);
+                }
             }
 
             Rectangle { height: 1px; background: Theme.menu-border; }
@@ -63,7 +77,10 @@ export component MenuWindow inherits Window {
             MenuItem {
                 text: "鼠标穿透";
                 checked: root.mouse_passthrough_state;
-                hovered => { root.hide_submenu(); }
+                hovered => {
+                    root.active_submenu = -1;
+                    root.hide_submenu();
+                }
                 clicked => {
                     root.mouse_passthrough_state = !root.mouse_passthrough_state;
                     root.set_mouse_passthrough(root.mouse_passthrough_state);
@@ -73,7 +90,10 @@ export component MenuWindow inherits Window {
             MenuItem {
                 text: "禁止休眠";
                 checked: root.prevent_sleep_state;
-                hovered => { root.hide_submenu(); }
+                hovered => {
+                    root.active_submenu = -1;
+                    root.hide_submenu();
+                }
                 clicked => {
                     root.prevent_sleep_state = !root.prevent_sleep_state;
                     root.set_prevent_sleep(root.prevent_sleep_state);
@@ -83,7 +103,10 @@ export component MenuWindow inherits Window {
             MenuItem {
                 text: "开机自启";
                 checked: root.auto_start_state;
-                hovered => { root.hide_submenu(); }
+                hovered => {
+                    root.active_submenu = -1;
+                    root.hide_submenu();
+                }
                 clicked => {
                     root.auto_start_state = !root.auto_start_state;
                     root.set_auto_start(root.auto_start_state);
@@ -92,7 +115,10 @@ export component MenuWindow inherits Window {
             }
             MenuItem {
                 text: "关闭显示器";
-                hovered => { root.hide_submenu(); }
+                hovered => {
+                    root.active_submenu = -1;
+                    root.hide_submenu();
+                }
                 clicked => {
                     root.turn_off_display();
                     root.close_menu();
@@ -100,7 +126,10 @@ export component MenuWindow inherits Window {
             }
             MenuItem {
                 text: "重启资源管理器";
-                hovered => { root.hide_submenu(); }
+                hovered => {
+                    root.active_submenu = -1;
+                    root.hide_submenu();
+                }
                 clicked => {
                     root.restart_explorer();
                     root.close_menu();
@@ -112,7 +141,10 @@ export component MenuWindow inherits Window {
             MenuItem {
                 text: "关于 Meter RS";
                 icon: "\u{ec51}";
-                hovered => { root.hide_submenu(); }
+                hovered => {
+                    root.active_submenu = -1;
+                    root.hide_submenu();
+                }
                 clicked => {
                     root.show_about();
                     root.close_menu();
@@ -122,9 +154,14 @@ export component MenuWindow inherits Window {
             MenuItem {
                 text: "退出程序";
                 icon: "\u{f1af}";
-                hovered => { root.hide_submenu(); }
+                hovered => {
+                    root.active_submenu = -1;
+                    root.hide_submenu();
+                }
                 clicked => { root.close_app(); }
             }
         }
     }
 }
+
+

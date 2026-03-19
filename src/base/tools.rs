@@ -4,35 +4,20 @@ use std::{env, process::Command};
 use i_slint_backend_winit::WinitWindowAccessor;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use slint::ComponentHandle;
-use tokio::runtime::{Builder, Runtime};
 use windows::Win32::{
-    Foundation::{COLORREF, HWND, LPARAM, POINT, RECT, WPARAM},
+    Foundation::{HWND, LPARAM, POINT, RECT, WPARAM},
     Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow},
-    System::{
-        Power::{ES_CONTINUOUS, ES_DISPLAY_REQUIRED, ES_SYSTEM_REQUIRED, SetThreadExecutionState},
-        Threading::{GetCurrentThread, SetThreadAffinityMask},
-    },
+    System::Power::{ES_CONTINUOUS, ES_DISPLAY_REQUIRED, ES_SYSTEM_REQUIRED, SetThreadExecutionState},
     UI::WindowsAndMessaging::{
         GWL_EXSTYLE, GetCursorPos, GetForegroundWindow, GetWindowLongPtrW, GetWindowRect,
-        HWND_BROADCAST, LWA_ALPHA, SC_MONITORPOWER, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE,
-        SWP_NOSIZE, SWP_NOZORDER, SendMessageW, SetLayeredWindowAttributes, SetWindowLongPtrW,
-        SetWindowPos, WM_SYSCOMMAND, WS_EX_LAYERED, WS_EX_TRANSPARENT,
+        HWND_BROADCAST, SC_MONITORPOWER, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        SWP_NOZORDER, SendMessageW, SetWindowLongPtrW, SetWindowPos, WM_SYSCOMMAND,
+        WS_EX_LAYERED, WS_EX_TRANSPARENT,
     },
 };
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-pub fn get_tokio_runtime(mask: usize, thread_num: usize) -> Runtime {
-    Builder::new_multi_thread()
-        .worker_threads(thread_num)
-        .on_thread_start(move || unsafe {
-            let thread = GetCurrentThread();
-            SetThreadAffinityMask(thread, mask);
-        })
-        .enable_all()
-        .build()
-        .expect("Failed to build Tokio runtime")
-}
 
 pub fn get_hwnd_by_window_handle<C: ComponentHandle>(view: &C) -> Option<HWND> {
     let mut hwnd_res = None;
@@ -99,7 +84,7 @@ pub fn get_submenu_position(
     work_area: (i32, i32, i32, i32),
 ) -> (i32, i32) {
     let (wa_left, wa_top, wa_right, wa_bottom) = work_area;
-    let gap = 6;
+    let gap = 3;
     let open_left = main_pos.0 + main_size.0 + gap + submenu_size.0 > wa_right;
     let x = if open_left {
         (main_pos.0 - gap - submenu_size.0).max(wa_left)
@@ -134,17 +119,6 @@ pub fn set_mouse_passthrough(hwnd: usize, enable: bool) {
             0,
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE,
         );
-    }
-}
-
-pub fn set_window_opacity(hwnd: usize, opacity: f32) {
-    let hwnd = HWND(hwnd as _);
-    let alpha = (opacity.clamp(0.2, 1.0) * 255.0).round() as u8;
-    unsafe {
-        let mut style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-        style |= WS_EX_LAYERED.0 as isize;
-        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style);
-        let _ = SetLayeredWindowAttributes(hwnd, COLORREF(0), alpha, LWA_ALPHA);
     }
 }
 

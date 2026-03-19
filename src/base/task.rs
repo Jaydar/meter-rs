@@ -1,10 +1,23 @@
-use std::{thread, time::Duration};
+use std::{sync::mpsc, thread, time::Duration};
 
-use crate::base::shared;
 use crate::ui;
-use slint::{ComponentHandle, ModelRc};
-use sysinfo::System;
-use windows::Win32::System::Threading::{GetCurrentThread, SetThreadAffinityMask};
+use slint::{ComponentHandle, Model, ModelRc};
+use sysinfo::{CpuRefreshKind, DiskRefreshKind, Disks, MemoryRefreshKind, Networks, System};
+use windows::Win32::{
+    System::{
+        ProcessStatus::EmptyWorkingSet,
+        Threading::{GetCurrentProcess, GetCurrentThread, SetThreadAffinityMask},
+    },
+};
+
+const ZERO_RATE: &str = "0.00 KB";
+
+struct MonitorRequest {
+    show_disk_total: bool,
+    show_disk_io: bool,
+    show_network: bool,
+    selected_disk_ids: Vec<String>,
+}
 
 fn format_rate(bytes: u64) -> String {
     const UNITS: [&str; 4] = ["KB", "MB", "GB", "TB"];
@@ -41,138 +54,263 @@ fn disk_name(disk: &sysinfo::Disk) -> String {
     }
 }
 
-pub async fn start_monitor(view: &ui::AppWindow) {
-    let cpu_last = {
-        let system = shared::info_system.lock().await;
-        system.cpus().len().saturating_sub(1)
+fn retain_selected_disk_ids(selected_ids: &[String], valid_ids: &[String]) -> Vec<String> {
+    selected_ids
+        .iter()
+        .filter(|id| valid_ids.iter().any(|valid_id| valid_id == *id))
+        .cloned()
+        .collect()
+}
+
+fn trim_working_set() {
+    unsafe {
+        let handle = GetCurrentProcess();
+        let _ = EmptyWorkingSet(handle);
+    }
+}
+
+pub fn refresh_disk_menu(view: &ui::AppWindow) {
+    let mut disks = Disks::new();
+    disks.refresh_specifics(true, DiskRefreshKind::nothing().with_storage());
+
+    let store = view.global::<ui::Store>();
+    let model = store.get_disk_menu_entries();
+    let mut selected_ids = Vec::new();
+    for i in 0..model.row_count() {
+        if let Some(entry) = model.row_data(i) {
+            if entry.checked {
+                selected_ids.push(entry.id.to_string());
+            }
+        }
+    }
+
+    let disk_options = {
+        disks
+            .iter()
+            .map(|disk| (disk_id(disk), disk_name(disk)))
+            .collect::<Vec<_>>()
     };
+
+    let valid_ids = disk_options
+        .iter()
+        .map(|(id, _)| id.clone())
+        .collect::<Vec<_>>();
+    let selected_ids = retain_selected_disk_ids(&selected_ids, &valid_ids);
+    let disk_menu_entries = disk_options
+        .iter()
+        .map(|(id, name)| ui::DiskMenuEntry {
+            id: id.clone().into(),
+            name: name.clone().into(),
+            checked: selected_ids.iter().any(|selected_id| selected_id == id),
+        })
+        .collect::<Vec<_>>();
+    let has_monitored_disks = !selected_ids.is_empty();
+
+    let store = view.global::<ui::Store>();
+    store.set_disk_menu_entries(ModelRc::from(disk_menu_entries.as_slice()));
+    store.set_has_monitored_disks(has_monitored_disks);
+}
+
+pub fn start_monitor(view: &ui::AppWindow) {
+    let cpu_last = thread::available_parallelism()
+        .map(|parallelism| parallelism.get().saturating_sub(1))
+        .unwrap_or(0);
     let cpu_last = cpu_last.min((usize::BITS as usize).saturating_sub(1));
     let mask: usize = 1usize << cpu_last;
 
-    let settings = shared::app_settings.lock().unwrap().clone();
     let store = view.global::<ui::Store>();
-    store.set_show_hostname(settings.show_hostname);
-    store.set_show_cpu(settings.show_cpu);
-    store.set_show_memory(settings.show_memory);
-    store.set_show_disk_total(settings.show_disk_total);
-    store.set_show_disk_io(settings.show_disk_io);
-    store.set_show_network(settings.show_network);
     store.set_computer_name(get_computer_name().into());
+    let model = store.get_disk_menu_entries();
+    let mut has_monitored_disks = false;
+    for i in 0..model.row_count() {
+        if let Some(entry) = model.row_data(i) {
+            if entry.checked {
+                has_monitored_disks = true;
+                break;
+            }
+        }
+    }
+    store.set_has_monitored_disks(has_monitored_disks);
 
     let weak = view.as_weak();
 
     let _ = thread::Builder::new()
         .name("meter-rs".to_string())
         .spawn(move || {
+            let mut system = System::new();
+            let mut disks = Disks::new();
+            let mut networks = Networks::new();
+            let mut trimmed_after_start = false;
+
             unsafe {
                 let thread = GetCurrentThread();
                 let _ = SetThreadAffinityMask(thread, mask);
             }
 
             loop {
-                let (
-                    cpu_usage,
-                    memory_usage,
-                    disk_usage,
-                    network_rx,
-                    network_tx,
-                    disk_total_read,
-                    disk_total_write,
-                    monitored_disks,
-                    disk_options,
-                ) = {
-                    let mut system = shared::info_system.blocking_lock();
-                    let mut disks = shared::info_disks.blocking_lock();
-                    let mut networks = shared::info_networks.blocking_lock();
+                let (request_tx, request_rx) = mpsc::sync_channel(1);
+                let weak_request = weak.clone();
+                if weak_request
+                    .upgrade_in_event_loop(move |ui| {
+                        let store = ui.global::<ui::Store>();
+                        let model = store.get_disk_menu_entries();
+                        let mut selected_disk_ids = Vec::new();
+                        for i in 0..model.row_count() {
+                            if let Some(entry) = model.row_data(i) {
+                                if entry.checked {
+                                    selected_disk_ids.push(entry.id.to_string());
+                                }
+                            }
+                        }
 
-                    system.refresh_cpu_all();
-                    system.refresh_memory();
-                    disks.refresh(true);
-                    networks.refresh(true);
+                        let _ = request_tx.send(MonitorRequest {
+                            show_disk_total: store.get_show_disk_total(),
+                            show_disk_io: store.get_show_disk_io(),
+                            show_network: store.get_show_network(),
+                            selected_disk_ids,
+                        });
+                    })
+                    .is_err()
+                {
+                    break;
+                }
+
+                let Ok(mut request) = request_rx.recv() else {
+                    break;
+                };
+                let had_monitored_disks = !request.selected_disk_ids.is_empty();
+
+                let (cpu_usage, memory_usage) = {
+                    system.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
+                    system.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
 
                     let cpu = system.global_cpu_usage();
                     let mem =
                         (system.used_memory() as f32 / system.total_memory().max(1) as f32) * 100.0;
-                    let (total_space, used_space) =
-                        disks.iter().fold((0u64, 0u64), |(t, u), disk| {
-                            (
-                                t + disk.total_space(),
-                                u + disk.total_space().saturating_sub(disk.available_space()),
-                            )
-                        });
-                    let disk_usage = if total_space == 0 {
-                        0.0
-                    } else {
-                        (used_space as f32 / total_space as f32) * 100.0
-                    };
+                    (cpu, mem)
+                };
 
-                    let (rx, tx) = networks.iter().fold((0u64, 0u64), |(rx, tx), (_, data)| {
-                        (rx + data.received(), tx + data.transmitted())
-                    });
+                let mut disk_usage = 0.0;
+                let mut disk_total_read = ZERO_RATE.to_string();
+                let mut disk_total_write = ZERO_RATE.to_string();
+                let mut monitored_disks = Vec::new();
+                let mut has_monitored_disks = had_monitored_disks;
 
-                    let disk_options = disks
-                        .iter()
-                        .map(|disk| shared::DiskOption {
-                            id: disk_id(disk),
-                            name: disk_name(disk),
-                        })
-                        .collect::<Vec<_>>();
-
-                    if let Ok(mut catalog) = shared::disk_catalog.lock() {
-                        *catalog = disk_options.clone();
+                if request.show_disk_total || request.show_disk_io || had_monitored_disks {
+                    let mut disk_refresh_kind = DiskRefreshKind::nothing();
+                    if request.show_disk_total || had_monitored_disks {
+                        disk_refresh_kind = disk_refresh_kind.with_storage();
+                    }
+                    if request.show_disk_io || had_monitored_disks {
+                        disk_refresh_kind = disk_refresh_kind.with_io_usage();
                     }
 
-                    let selected_ids = {
-                        let mut settings = shared::app_settings.lock().unwrap();
-                        settings
-                            .monitored_disk_ids
-                            .retain(|id| disk_options.iter().any(|disk| disk.id == *id));
-                        settings.monitored_disk_ids.clone()
+                    let (
+                        next_disk_usage,
+                        next_disk_total_read,
+                        next_disk_total_write,
+                        next_monitored_disks,
+                        next_has_monitored_disks,
+                        next_selected_disk_ids,
+                    ) = {
+                        disks.refresh_specifics(true, disk_refresh_kind);
+
+                        let selected_ids = if had_monitored_disks {
+                            let valid_ids = disks.iter().map(disk_id).collect::<Vec<_>>();
+                            retain_selected_disk_ids(&request.selected_disk_ids, &valid_ids)
+                        } else {
+                            Vec::new()
+                        };
+                        let has_monitored_disks = !selected_ids.is_empty();
+
+                        let disk_usage = if request.show_disk_total {
+                            let (total_space, used_space) =
+                                disks.iter().fold((0u64, 0u64), |(total, used), disk| {
+                                    (
+                                        total + disk.total_space(),
+                                        used + disk.total_space().saturating_sub(disk.available_space()),
+                                    )
+                                });
+                            if total_space == 0 {
+                                0.0
+                            } else {
+                                (used_space as f32 / total_space as f32) * 100.0
+                            }
+                        } else {
+                            0.0
+                        };
+
+                        let mut total_read = 0u64;
+                        let mut total_write = 0u64;
+                        let mut monitored = Vec::new();
+                        if request.show_disk_io || has_monitored_disks {
+                            for disk in disks.iter() {
+                                let usage = disk.usage();
+                                if request.show_disk_io {
+                                    total_read += usage.read_bytes;
+                                    total_write += usage.written_bytes;
+                                }
+
+                                let id = disk_id(disk);
+                                if selected_ids.iter().any(|selected| selected == &id) {
+                                    let percent = if disk.total_space() == 0 {
+                                        0.0
+                                    } else {
+                                        ((disk.total_space().saturating_sub(disk.available_space()))
+                                            as f32
+                                            / disk.total_space() as f32)
+                                            * 100.0
+                                    };
+                                    monitored.push(ui::DiskIoEntry {
+                                        id: id.into(),
+                                        name: disk_name(disk).into(),
+                                        usage: percent,
+                                        read: format_rate(usage.read_bytes).into(),
+                                        write: format_rate(usage.written_bytes).into(),
+                                    });
+                                }
+                            }
+                        }
+
+                        (
+                            disk_usage,
+                            if request.show_disk_io {
+                                format_rate(total_read)
+                            } else {
+                                ZERO_RATE.to_string()
+                            },
+                            if request.show_disk_io {
+                                format_rate(total_write)
+                            } else {
+                                ZERO_RATE.to_string()
+                            },
+                            monitored,
+                            has_monitored_disks,
+                            selected_ids,
+                        )
                     };
 
-                    let (total_read, total_write, monitored) = disks.iter().fold(
-                        (0u64, 0u64, Vec::new()),
-                        |(read_sum, write_sum, mut entries), disk| {
-                            let usage = disk.usage();
-                            let id = disk_id(disk);
-                            if selected_ids.iter().any(|selected| selected == &id) {
-                                let percent = if disk.total_space() == 0 {
-                                    0.0
-                                } else {
-                                    ((disk.total_space().saturating_sub(disk.available_space())) as f32
-                                        / disk.total_space() as f32)
-                                        * 100.0
-                                };
-                                entries.push(ui::DiskIoEntry {
-                                    id: id.into(),
-                                    name: disk_name(disk).into(),
-                                    usage: percent,
-                                    read: format_rate(usage.read_bytes).into(),
-                                    write: format_rate(usage.written_bytes).into(),
-                                });
-                            }
-                            (
-                                read_sum + usage.read_bytes,
-                                write_sum + usage.written_bytes,
-                                entries,
-                            )
-                        },
-                    );
+                    disk_usage = next_disk_usage;
+                    disk_total_read = next_disk_total_read;
+                    disk_total_write = next_disk_total_write;
+                    monitored_disks = next_monitored_disks;
+                    has_monitored_disks = next_has_monitored_disks;
+                    request.selected_disk_ids = next_selected_disk_ids;
+                }
 
-                    (
-                        cpu,
-                        mem,
-                        disk_usage,
-                        format_rate(rx),
-                        format_rate(tx),
-                        format_rate(total_read),
-                        format_rate(total_write),
-                        monitored,
-                        disk_options,
-                    )
+                let (network_rx, network_tx) = if request.show_network {
+                    networks.refresh(true);
+
+                    let (rx, tx) = networks.iter().fold((0u64, 0u64), |(received, sent), (_, data)| {
+                        (received + data.received(), sent + data.transmitted())
+                    });
+                    (format_rate(rx), format_rate(tx))
+                } else {
+                    (ZERO_RATE.to_string(), ZERO_RATE.to_string())
                 };
 
                 let weak = weak.clone();
+                let selected_disk_ids = request.selected_disk_ids;
                 let _ = weak.upgrade_in_event_loop(move |ui| {
                     let store = ui.global::<ui::Store>();
                     store.set_cpu_usage(cpu_usage);
@@ -184,12 +322,27 @@ pub async fn start_monitor(view: &ui::AppWindow) {
                     store.set_disk_total_write(disk_total_write.into());
                     store.set_monitored_disks(ModelRc::from(monitored_disks.as_slice()));
 
-                    let disk_menu = &ui::use_view::<crate::view::DiskMenuView>().ui;
-                    crate::view::DiskMenuView::sync_entries_with_options(disk_menu, &disk_options);
+                    if had_monitored_disks {
+                        let model = store.get_disk_menu_entries();
+                        let mut entries = Vec::new();
+                        for i in 0..model.row_count() {
+                            if let Some(mut entry) = model.row_data(i) {
+                                entry.checked = selected_disk_ids
+                                    .iter()
+                                    .any(|selected_id| selected_id == &entry.id.to_string());
+                                entries.push(entry);
+                            }
+                        }
+                        store.set_disk_menu_entries(ModelRc::from(entries.as_slice()));
+                    }
 
-                    let submenu = &ui::use_view::<crate::view::SubmenuView>().ui;
-                    submenu.set_has_monitored_disks(!monitored_disks.is_empty());
+                    store.set_has_monitored_disks(has_monitored_disks);
                 });
+
+                if !trimmed_after_start {
+                    trimmed_after_start = true;
+                    trim_working_set();
+                }
 
                 thread::sleep(Duration::from_millis(1500));
             }

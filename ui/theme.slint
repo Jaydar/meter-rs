@@ -9,17 +9,18 @@ export global Theme {
             ? (Palette.color-scheme == ColorScheme.dark ? ThemeMode.dark : ThemeMode.light)
             : mode;
 
-    out property <color> window-bg: resolved_mode == ThemeMode.dark ? #000000E6 : #E1F5F7FA;
-    out property <color> card-bg: resolved_mode == ThemeMode.dark ? #0A0F1C : #FFFFFFFF;
+    out property <color> window-bg: resolved_mode == ThemeMode.dark ? #000000 : #E1F5F7;
+    out property <color> card-bg: resolved_mode == ThemeMode.dark ? #0A0F1C : #FFFFFF;
     out property <color> title: resolved_mode == ThemeMode.dark ? #00E5FF : #0E7490;
     out property <color> sub-title: resolved_mode == ThemeMode.dark ? #00B8D4 : #0891B2;
     out property <color> text: resolved_mode == ThemeMode.dark ? #FFFFFF : #0F172A;
     out property <color> text-low: resolved_mode == ThemeMode.dark ? #00E676 : #059669;
     out property <color> text-mid: resolved_mode == ThemeMode.dark ? #FFEA00 : #CA8A04;
     out property <color> text-high: resolved_mode == ThemeMode.dark ? #FF1744 : #DC2626;
-    out property <color> menu-bg: resolved_mode == ThemeMode.dark ? #111827F2 : #FFFFFFFF;
+    out property <color> menu-bg: resolved_mode == ThemeMode.dark ? #111827 : #FFFFFF;
     out property <color> menu-border: resolved_mode == ThemeMode.dark ? #253047 : #D7DFEA;
-    out property <color> menu-hover-bg: resolved_mode == ThemeMode.dark ? #1E293BCC : #E8F1FB;
+    out property <color> menu-hover-bg: resolved_mode == ThemeMode.dark ? #1E293B : #E8F1FB;
+    out property <color> menu-active-bg: resolved_mode == ThemeMode.dark ? #334155 : #D2E6FA;
     out property <color> menu-hover-fg: resolved_mode == ThemeMode.dark ? #FFFFFF : #0F172A;
 
     in property <string> font-family: "Microsoft YaHei UI";

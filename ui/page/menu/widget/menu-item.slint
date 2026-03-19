@@ -5,13 +5,14 @@ export component MenuItem inherits Rectangle {
     in property <string> icon;
     in property <string> text;
     in property <bool> checked;
+    in property <bool> active: false;
     in property <bool> has_submenu: false;
     callback clicked <=> ta.clicked;
     callback hovered;
 
     height: 30px;
     border-radius: 6px;
-    background: ta.has-hover ? Theme.menu-hover-bg : transparent;
+    background: ta.has-hover ? Theme.menu-hover-bg : (root.active ? Theme.menu-active-bg : transparent);
 
     ta := TouchArea {
         mouse-cursor: MouseCursor.pointer;
@@ -26,13 +27,14 @@ export component MenuItem inherits Rectangle {
         padding-left: 10px;
         padding-right: 10px;
         spacing: 8px;
+        
 
         Text {
             width: 20px;
             font-size: 17px;
             font-family: "remixicon";
             text: root.checked ? "\u{eb7b}" : root.icon;
-            color: ta.has-hover ? Theme.menu-hover-fg : Theme.text;
+            color: (ta.has-hover || root.active) ? Theme.menu-hover-fg : Theme.text;
             vertical-alignment: center;
             horizontal-alignment: center;
         }
@@ -40,7 +42,7 @@ export component MenuItem inherits Rectangle {
         Text {
             vertical-stretch: 1;
             text: root.text;
-            color: ta.has-hover ? Theme.menu-hover-fg : Theme.text;
+            color: (ta.has-hover || root.active) ? Theme.menu-hover-fg : Theme.text;
             vertical-alignment: center;
         }
 
@@ -49,7 +51,7 @@ export component MenuItem inherits Rectangle {
             font-size: 15px;
             font-family: "remixicon";
             text: "\u{ea6d}";
-            color: ta.has-hover ? Theme.menu-hover-fg : Theme.text;
+            color: (ta.has-hover || root.active) ? Theme.menu-hover-fg : Theme.text;
             vertical-alignment: center;
             horizontal-alignment: right;
         }

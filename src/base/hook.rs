@@ -7,7 +7,7 @@ static HOOK_HANDLE: AtomicIsize = AtomicIsize::new(0);
 static ON_EVENT: OnceLock<Box<dyn Fn(i32, WPARAM, LPARAM) + Send + Sync>> = OnceLock::new();
 
 
-/// 核心：回调函数
+// 核心：回调函数
 unsafe extern "system" fn call_back_proc(n_code: i32, w_param: WPARAM, l_param: LPARAM) -> LRESULT {
     let h_hook_ptr = HOOK_HANDLE.load(Ordering::SeqCst);
     let h_hook = HHOOK(h_hook_ptr as *mut _);
@@ -19,11 +19,10 @@ unsafe extern "system" fn call_back_proc(n_code: i32, w_param: WPARAM, l_param: 
         }
     }
     
-    println!("执行下一个hook");
     unsafe { CallNextHookEx(Some(h_hook), n_code, w_param, l_param) }
 }
 
-/// 安装钩子
+// 安装钩子
 pub fn install_win32_hook<F>(callback: F) 
 where F: Fn(i32, WPARAM, LPARAM) + Send + Sync + 'static 
 {
@@ -42,13 +41,12 @@ where F: Fn(i32, WPARAM, LPARAM) + Send + Sync + 'static
 }
 
 
-/// 提供一个显式的卸载函数
+// 提供一个显式的卸载函数
 pub fn uninstall_win32_hook() {
     let h_hook_ptr = HOOK_HANDLE.swap(0, Ordering::SeqCst);
     if h_hook_ptr != 0 {
         unsafe {
             let _ = UnhookWindowsHookEx(HHOOK(h_hook_ptr as *mut _));
         }
-        println!("【Hook】手动卸载成功");
     }
 }

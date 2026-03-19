@@ -89,7 +89,8 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
             let event = lparam.0 as u32;
             if event == WM_RBUTTONUP || event == WM_CONTEXTMENU {
                 let _ = slint::invoke_from_event_loop(|| {
-                    crate::view::MenuView::show_context_menu();
+                    let menu_view = crate::ui::use_view::<crate::view::MenuView>();
+                    menu_view.show();
                 });
             }
             LRESULT(0)

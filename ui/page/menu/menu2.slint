@@ -1,9 +1,10 @@
 ﻿import { Theme, ThemeMode } from "../../theme.slint";
+import { Store } from "../../store.slint";
 import { MenuItem } from "widget/menu-item.slint";
 
 export enum SubmenuKind { theme, display, window }
 
-export component SubmenuWindow inherits Window {
+export component Menu2Window inherits Window {
     width: 180px;
     height: content.preferred-height;
     background: transparent;
@@ -18,7 +19,7 @@ export component SubmenuWindow inherits Window {
     in-out property <bool> show_disk_total_state: true;
     in-out property <bool> show_disk_io_state: true;
     in-out property <bool> show_network_state: true;
-    in-out property <bool> has_monitored_disks: false;
+    in-out property <bool> disk_submenu_active: false;
     in-out property <bool> always_on_top_state: true;
     in-out property <bool> snap_to_edge_state: true;
     in-out property <float> opacity_value: 0.9;
@@ -31,7 +32,7 @@ export component SubmenuWindow inherits Window {
     callback set_show_disk_total(bool);
     callback set_show_disk_io(bool);
     callback set_show_network(bool);
-    callback show_disk_monitor_submenu(length);
+    callback show_disk_monitor_submenu(length, length);
     callback hide_disk_monitor_submenu();
     callback set_always_on_top(bool);
     callback set_snap_to_edge(bool);
@@ -120,9 +121,13 @@ export component SubmenuWindow inherits Window {
             }
             if (root.kind == SubmenuKind.display) : disk_monitor_item := MenuItem {
                 text: "磁盘监控";
-                checked: root.has_monitored_disks;
+                checked: Store.has_monitored_disks;
+                active: root.disk_submenu_active;
                 has_submenu: true;
-                hovered => { root.show_disk_monitor_submenu(disk_monitor_item.y); }
+                hovered => {
+                    root.disk_submenu_active = true;
+                    root.show_disk_monitor_submenu(disk_monitor_item.x, disk_monitor_item.y);
+                }
                 clicked => {}
             }
             if (root.kind == SubmenuKind.display) : MenuItem {
@@ -220,4 +225,7 @@ export component SubmenuWindow inherits Window {
         }
     }
 }
+
+
+
 

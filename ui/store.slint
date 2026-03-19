@@ -1,3 +1,5 @@
+import { ThemeMode } from "./theme.slint";
+
 export struct DiskIoEntry {
     id: string,
     name: string,
@@ -13,6 +15,14 @@ export struct DiskMenuEntry {
 }
 
 export global Store {
+    in-out property <ThemeMode> theme_mode: ThemeMode.system;
+    in-out property <bool> auto_start: false;
+    in-out property <bool> mouse_passthrough: false;
+    in-out property <bool> prevent_sleep: false;
+    in-out property <bool> always_on_top: true;
+    in-out property <bool> snap_to_edge: true;
+    in-out property <float> window_opacity: 0.9;
+
     in-out property <float> cpu_usage: 0;
     in-out property <float> memory_usage: 0;
     in-out property <float> disk_usage: 0;
@@ -22,6 +32,8 @@ export global Store {
     in-out property <string> network_tx: "0.00 KB";
     in-out property <[DiskIoEntry]> monitored_disks: [];
     in-out property <string> computer_name: "Unknown";
+    in-out property <[DiskMenuEntry]> disk_menu_entries: [];
+    in-out property <bool> has_monitored_disks: false;
 
     in-out property <bool> show_hostname: false;
     in-out property <bool> show_cpu: true;

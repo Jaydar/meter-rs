@@ -1,8 +1,9 @@
 use std::{os::windows::process::CommandExt, process::Command};
 
 use slint::ComponentHandle;
+use std::sync::atomic::Ordering;
 
-use crate::{shared, tools, ui};
+use crate::{tools, ui, MAIN_HWND};
 
 const GITHUB_URL: &str = "https://github.com/Jaydar/meter-rs";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -13,7 +14,7 @@ pub struct AboutView {
 
 impl Default for AboutView {
     fn default() -> Self {
-        Self::new()
+        AboutView::new()
     }
 }
 
@@ -27,7 +28,10 @@ impl AboutView {
         self.ui
             .set_version_text(format!("v{}", env!("CARGO_PKG_VERSION")).into());
         self.ui.set_github_url(GITHUB_URL.into());
-        self.ui.on_close_about(Self::hide);
+        self.ui.on_close_about(|| {
+            let about = ui::use_view::<AboutView>();
+            about.hide();
+        });
         self.ui.on_open_github(|| {
             let _ = Command::new("cmd")
                 .creation_flags(CREATE_NO_WINDOW)
@@ -37,25 +41,29 @@ impl AboutView {
         self
     }
 
-    pub fn show() {
-        let about = &ui::use_view::<AboutView>().ui;
-        Self::sync_content(about);
-        Self::apply_geometry(about);
-        let _ = about.show();
+    pub fn show(&self) {
+        let app_view = ui::use_view::<crate::view::AppView>();
+        let app_store = app_view.ui.global::<ui::Store>();
+        let theme_mode = app_store.get_theme_mode();
+        self.ui.global::<ui::Store>().set_theme_mode(theme_mode);
+        self.ui.global::<ui::Theme>().set_mode(theme_mode);
+        self.sync_content();
+        self.apply_geometry();
+        let _ = self.ui.show();
     }
 
-    pub fn hide() {
-        let about = &ui::use_view::<AboutView>().ui;
-        let _ = about.hide();
+    pub fn hide(&self) {
+        let _ = self.ui.hide();
     }
 
-    fn sync_content(about: &ui::AboutWindow) {
-        about.set_version_text(format!("v{}", env!("CARGO_PKG_VERSION")).into());
-        about.set_github_url(GITHUB_URL.into());
+    fn sync_content(&self) {
+        self.ui
+            .set_version_text(format!("v{}", env!("CARGO_PKG_VERSION")).into());
+        self.ui.set_github_url(GITHUB_URL.into());
     }
 
-    fn apply_geometry(about: &ui::AboutWindow) {
-        let hwnd = shared::win32_info.try_lock().map(|info| info.hwnd).unwrap_or(0);
+    fn apply_geometry(&self) {
+        let hwnd = MAIN_HWND.load(Ordering::Relaxed);
         if hwnd == 0 {
             return;
         }
@@ -63,11 +71,11 @@ impl AboutView {
             return;
         };
 
-        let size = about.window().size();
+        let size = self.ui.window().size();
         let width = size.width as i32;
         let height = size.height as i32;
         let x = (wa_left + (wa_right - wa_left - width) / 2).clamp(wa_left, wa_right - width);
         let y = (wa_top + (wa_bottom - wa_top - height) / 2).clamp(wa_top, wa_bottom - height);
-        about.window().set_position(slint::PhysicalPosition::new(x, y));
+        self.ui.window().set_position(slint::PhysicalPosition::new(x, y));
     }
 }

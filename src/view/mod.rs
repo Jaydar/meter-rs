@@ -5,4 +5,4 @@ mod about_view;
 pub use about_view::AboutView;
 
 mod menu;
-pub use menu::{DiskMenuView, MenuView, SubmenuView};
+pub use menu::MenuView;

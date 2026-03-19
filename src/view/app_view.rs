@@ -1,8 +1,8 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use i_slint_backend_winit::WinitWindowAccessor;
+use slint::ComponentHandle;
+use std::sync::atomic::Ordering;
 
-use slint::{ComponentHandle, RenderingState};
-
-use crate::{base, shared, tools, ui, view::MenuView};
+use crate::{base, tools, ui, view::MenuView, MAIN_HWND};
 
 pub struct AppView {
     pub ui: ui::AppWindow,
@@ -10,7 +10,7 @@ pub struct AppView {
 
 impl Default for AppView {
     fn default() -> Self {
-        Self::new()
+        AppView::new()
     }
 }
 
@@ -20,50 +20,53 @@ impl AppView {
     }
 
     pub fn setup(self) -> Self {
-        self.setup_window_events().set_position()
-    }
-
-    fn set_position(self) -> Self {
-        let weak = self.ui.as_weak();
-        self.ui
-            .window()
-            .set_rendering_notifier({
-                let initialized = AtomicBool::new(false);
-                move |state, _graphics_api| match state {
-                    RenderingState::BeforeRendering if !initialized.swap(true, Ordering::SeqCst) => {
-                        if let Some(ui) = weak.upgrade() {
-                            let settings = shared::app_settings.lock().unwrap().clone();
-                            Self::apply_theme(&ui, settings.theme);
-                            Self::apply_store_settings(&ui, &settings);
-                            ui.set_always_on_top_state(settings.always_on_top);
-                            tools::set_prevent_sleep(settings.prevent_sleep);
-
-                            if let Ok(info) = shared::win32_info.try_lock() {
-                                if info.hwnd != 0 {
-                                    tools::set_window_opacity(info.hwnd, settings.opacity);
-                                    tools::set_mouse_passthrough(info.hwnd, settings.mouse_passthrough);
-
-                                    let size = ui.window().size();
-                                    let width = size.width as i32;
-                                    let height = size.height as i32;
-
-                                    if let Some((wa_left, wa_top, wa_right, wa_bottom)) = tools::get_work_area(info.hwnd) {
-                                        let x = (wa_right - width).max(wa_left);
-                                        let y = (wa_bottom - height).max(wa_top);
-                                        ui.window().set_position(slint::PhysicalPosition::new(x, y));
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            })
-            .expect("set_rendering_notifier error");
+        self.setup_window_events();
+        let store = self.ui.global::<ui::Store>();
+        store.set_auto_start(tools::is_auto_start());
         self
     }
 
-    fn setup_window_events(self) -> Self {
+    pub fn set_position(&self) {
+        let weak = self.ui.as_weak();
+        slint::spawn_local(async move {
+            let Some(ui) = weak.upgrade() else {
+                return;
+            };
+
+            if ui.window().winit_window().await.is_ok() {
+          
+                let hwnd = MAIN_HWND.load(Ordering::Relaxed);
+                if hwnd == 0 {
+                    return;
+                }
+
+                let size = ui.window().size();
+                let width = size.width as i32;
+                let height = size.height as i32;
+
+                if let Some((wa_left, wa_top, wa_right, wa_bottom)) = tools::get_work_area(hwnd) {
+                    let x = (wa_right - width).max(wa_left);
+                    let y = (wa_bottom - height).max(wa_top);
+                    ui.window().set_position(slint::PhysicalPosition::new(x, y));
+                }
+            }
+        })
+        .expect("failed to set window position");
+    }
+
+    pub fn show(&self) -> Result<(), slint::PlatformError> {
+        self.ui.show()?;
+        self.set_position();
+        Ok(())
+    }
+
+    pub fn run(&self) -> Result<(), slint::PlatformError> {
+        self.show()?;
+        slint::run_event_loop()?;
+        Ok(())
+    }
+
+    fn setup_window_events(&self) {
         let weak = self.ui.as_weak();
 
         self.ui.on_win_move({
@@ -81,21 +84,22 @@ impl AppView {
         self.ui.on_win_move_up({
             let weak = weak.clone();
             move || {
-                let snap_enabled = shared::app_settings.lock().map(|settings| settings.snap_to_edge).unwrap_or(true);
-                if !snap_enabled {
-                    return;
-                }
-
                 if let Some(view_inst) = weak.upgrade() {
+                    if !view_inst.global::<ui::Store>().get_snap_to_edge() {
+                        return;
+                    }
                     let window = view_inst.window();
-                    let win32 = base::shared::win32_info.try_lock().expect("lock failed");
-                    if let Some(size) = base::tools::get_size(win32.hwnd) {
+                    let hwnd = MAIN_HWND.load(Ordering::Relaxed);
+                    if hwnd == 0 {
+                        return;
+                    }
+                    if let Some(size) = base::tools::get_size(hwnd) {
                         let cur_x = size.0;
                         let cur_y = size.1;
                         let width = size.2 - size.0;
                         let height = size.3 - size.1;
 
-                        if let Some((wa_left, wa_top, wa_right, wa_bottom)) = base::tools::get_work_area(win32.hwnd) {
+                        if let Some((wa_left, wa_top, wa_right, wa_bottom)) = base::tools::get_work_area(hwnd) {
                             let mut target_x = cur_x;
                             let mut target_y = cur_y;
                             let snap_dist = 50;
@@ -122,40 +126,8 @@ impl AppView {
         });
 
         self.ui.on_show_menu(move |_, _| {
-            MenuView::show_context_menu();
+            let menu_view = ui::use_view::<MenuView>();
+            menu_view.show();
         });
-
-        self
-    }
-
-    pub fn apply_store_settings(view: &ui::AppWindow, settings: &shared::AppSettings) {
-        let store = view.global::<ui::Store>();
-        store.set_show_hostname(settings.show_hostname);
-        store.set_show_cpu(settings.show_cpu);
-        store.set_show_memory(settings.show_memory);
-        store.set_show_disk_total(settings.show_disk_total);
-        store.set_show_disk_io(settings.show_disk_io);
-        store.set_show_network(settings.show_network);
-    }
-
-    pub fn apply_theme(view: &ui::AppWindow, theme: shared::ThemeKind) {
-        let theme_global = view.global::<ui::Theme>();
-        theme_global.set_mode(Self::to_ui_theme_mode(theme));
-    }
-
-    pub fn to_ui_theme_mode(theme: shared::ThemeKind) -> ui::ThemeMode {
-        match theme {
-            shared::ThemeKind::System => ui::ThemeMode::System,
-            shared::ThemeKind::Dark => ui::ThemeMode::Dark,
-            shared::ThemeKind::Light => ui::ThemeMode::Light,
-        }
-    }
-
-    pub fn from_ui_theme_mode(theme: ui::ThemeMode) -> shared::ThemeKind {
-        match theme {
-            ui::ThemeMode::System => shared::ThemeKind::System,
-            ui::ThemeMode::Dark => shared::ThemeKind::Dark,
-            ui::ThemeMode::Light => shared::ThemeKind::Light,
-        }
     }
 }

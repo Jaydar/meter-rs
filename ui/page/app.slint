@@ -1,16 +1,17 @@
 import { MenuWindow } from "menu/menu.slint";
-import { SubmenuWindow } from "menu/submenu.slint";
-import { DiskMenuWindow } from "menu/disk-menu.slint";
+import { Menu2Window } from "menu/menu2.slint";
+import { Menu3Window } from "menu/menu3.slint";
 import { AboutWindow } from "about.slint";
 import { Theme } from "../theme.slint";
 import { Store } from "../store.slint";
 
-export { MenuWindow, SubmenuWindow, DiskMenuWindow, AboutWindow, Store, Theme }
+export { MenuWindow, Menu2Window, Menu3Window, AboutWindow, Store, Theme }
 
 export component AppWindow inherits Window {
     title: "Meter RS";
-    in-out property <bool> always_on_top_state: true;
+    
     always-on-top: root.always_on_top_state;
+    
     no-frame: true;
     background: transparent;
     default-font-size: Theme.font-size;
@@ -18,6 +19,10 @@ export component AppWindow inherits Window {
     default-font-weight: Theme.font-weight;
     width: 200px;
     height: content.preferred-height;
+
+    in-out property <bool> always_on_top_state: true;
+
+    
 
     function get_cpu_color(usage: float) -> color {
         return usage > 50 ? Theme.text-high : (usage > 20 ? Theme.text-mid : Theme.text-low);
@@ -35,33 +40,31 @@ export component AppWindow inherits Window {
     callback win_move_up();
     callback show_menu(length, length);
 
-    Rectangle {
+    content := Rectangle {
         background: Theme.window-bg;
+        opacity: Store.window_opacity;
         border-radius: 10px;
         width: 100%;
         clip: true;
 
-        TouchArea {
-            width: 100%;
-            mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
+        VerticalLayout {
+            padding: 10px;
+            spacing: 8px;
 
-            moved => {
-                root.win_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
-            }
+            TouchArea {
+                width: 100%;
+      
+                mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
 
-            pointer-event(event) => {
-                if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
-                    root.win_move_up();
+                moved => {
+                    root.win_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
                 }
-                if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
-                    root.show_menu(self.mouse-x, self.mouse-y);
+
+                pointer-event(event) => {
+                    if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
+                        root.win_move_up();
+                    }
                 }
-            }
-
-            content := VerticalLayout {
-                padding: 10px;
-                spacing: 8px;
-
                 Text {
                     width: 100%;
                     text: "Meter RS";
@@ -71,300 +74,346 @@ export component AppWindow inherits Window {
                     horizontal-alignment: center;
                     letter-spacing: 2px;
                 }
+            }
 
-                if (Store.show_hostname || Store.show_cpu || Store.show_memory || Store.show_disk_total) : Rectangle {
-                    border-radius: 8px;
-                    background: Theme.card-bg;
+            TouchArea {
+                width: 100%;
+                
+                mouse-cursor: MouseCursor.default;
 
-                    VerticalLayout {
-                        padding-left: 10px;
-                        padding-right: 10px;
-                        padding-top: 10px;
-                        padding-bottom: 10px;
-                        spacing: 3px;
-
-                        if (Store.show_hostname) : Text {
-                            text: Store.computer_name;
-                            color: Theme.sub-title;
-                            font-size: 10pt;
-                            letter-spacing: 2px;
-                        }
-
-                        if (Store.show_cpu) : HorizontalLayout {
-                            alignment: space-between;
-                            Text { text: "CPU"; color: Theme.text; font-size: 9pt;}
-                            Text {
-                                text: Store.cpu_usage.to-fixed(1) + "%";
-                                color: root.get_cpu_color(Store.cpu_usage);
-                                font-size: 9pt;
-                            }
-                        }
-
-                        if (Store.show_memory) : HorizontalLayout {
-                            alignment: space-between;
-                            Text { text: "内存占用"; color: Theme.text; font-size: 9pt; }
-                            Text {
-                                text: Store.memory_usage.to-fixed(1) + "%";
-                                color: root.get_mem_color(Store.memory_usage);
-                                font-size: 9pt;
-                            }
-                        }
-
-                        if (Store.show_disk_total) : HorizontalLayout {
-                            alignment: space-between;
-                            Text { text: "磁盘占用"; color: Theme.text; font-size: 9pt; }
-                            Text {
-                                text: Store.disk_usage.to-fixed(1) + "%";
-                                color: root.get_disk_color(Store.disk_usage);
-                                font-size: 9pt;
-                            }
-                        }
+                pointer-event(event) => {
+                    if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
+                        root.show_menu(self.mouse-x, self.mouse-y);
                     }
                 }
 
-                if (Store.show_disk_io) : Rectangle {
-                    border-radius: 8px;
-                    background: Theme.card-bg;
+               VerticalLayout {
+                    spacing: 8px;
 
-                    VerticalLayout {
-                        padding-left: 10px;
-                        padding-right: 10px;
-                        padding-top: 8px;
-                        padding-bottom: 8px;
-                        spacing: 4px;
+                    if (Store.show_hostname || Store.show_cpu || Store.show_memory || Store.show_disk_total): Rectangle {
+                        width: 100%;
+                        height: basic_card.preferred-height;
+                        border-radius: 8px;
+                        background: Theme.card-bg;
 
-                        Text {
-                            text: "磁盘IO";
-                            color: Theme.sub-title;
-                            font-size: 10pt;
-                            font-weight: 600;
-                            letter-spacing: 2px;
-                        }
+                        basic_card := VerticalLayout {
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            padding-top: 10px;
+                            padding-bottom: 10px;
+                            spacing: 3px;
 
-                        HorizontalLayout {
-                            spacing: 0px;
-
-                            Rectangle {
-                                width: 50%;
-                                background: transparent;
-                                clip: true;
-
-                                VerticalLayout {
-                                    padding-left: 2px;
-                                    padding-right: 2px;
-                                    spacing: 2px;
-
-                                    Text {
-                                        width: 100%;
-                                        text: "读取";
-                                        color: Theme.text;
-                                        font-size: 9pt;
-                                        horizontal-alignment: center;
-                                    }
-
-                                    Text {
-                                        width: 100%;
-                                        text: Store.disk_total_read;
-                                        color: Theme.text-low;
-                                        font-size: 9pt;
-                                        horizontal-alignment: center;
-                                    }
-                                }
+                            if (Store.show_hostname): Text {
+                                text: Store.computer_name;
+                                color: Theme.sub-title;
+                                font-size: 10pt;
+                                letter-spacing: 2px;
                             }
 
-                            Rectangle {
-                                width: 50%;
-                                background: transparent;
-                                clip: true;
-
-                                VerticalLayout {
-                                    padding-left: 2px;
-                                    padding-right: 2px;
-                                    spacing: 2px;
-
-                                    Text {
-                                        width: 100%;
-                                        text: "写入";
-                                        color: Theme.text;
-                                        font-size: 9pt;
-                                        horizontal-alignment: center;
-                                    }
-
-                                    Text {
-                                        width: 100%;
-                                        text: Store.disk_total_write;
-                                        color: Theme.text-low;
-                                        font-size: 9pt;
-                                        horizontal-alignment: center;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (Store.show_network) : Rectangle {
-                    border-radius: 8px;
-                    background: Theme.card-bg;
-
-                    VerticalLayout {
-                        padding-left: 10px;
-                        padding-right: 10px;
-                        padding-top: 8px;
-                        padding-bottom: 8px;
-                        spacing: 4px;
-
-                        Text {
-                            text: "网络";
-                            color: Theme.sub-title;
-                            font-size: 10pt;
-                            letter-spacing: 2px;
-                        }
-
-                        HorizontalLayout {
-                            spacing: 0px;
-
-                            Rectangle {
-                                width: 50%;
-                                background: transparent;
-                                clip: true;
-
-                                VerticalLayout {
-                                    padding-left: 2px;
-                                    padding-right: 2px;
-                                    spacing: 2px;
-
-                                    Text {
-                                        width: 100%;
-                                        text: "上传";
-                                        color: Theme.text;
-                                        font-size: 9pt;
-                                        horizontal-alignment: center;
-                                    }
-
-                                    Text {
-                                        width: 100%;
-                                        text: Store.network_tx;
-                                        color: Theme.text-low;
-                                        font-size: 9pt;
-                                        horizontal-alignment: center;
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                width: 50%;
-                                background: transparent;
-                                clip: true;
-
-                                VerticalLayout {
-                                    padding-left: 2px;
-                                    padding-right: 2px;
-                                    spacing: 2px;
-
-                                    Text {
-                                        width: 100%;
-                                        text: "下载";
-                                        color: Theme.text;
-                                        font-size: 9pt;
-                                        horizontal-alignment: center;
-                                    }
-
-                                    Text {
-                                        width: 100%;
-                                        text: Store.network_rx;
-                                        color: Theme.text-low;
-                                        font-size: 9pt;
-                                        horizontal-alignment: center;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (Store.monitored_disks.length > 0) : Rectangle {
-                    border-radius: 8px;
-                    background: Theme.card-bg;
-
-                    VerticalLayout {
-                        padding-left: 10px;
-                        padding-right: 10px;
-                        padding-top: 8px;
-                        padding-bottom: 8px;
-                        spacing: 4px;
-
-                        Text {
-                            text: "磁盘监控";
-                            color: Theme.sub-title;
-                            font-size: 10pt;
-                            letter-spacing: 2px;
-                        }
-
-                        for disk in Store.monitored_disks : VerticalLayout {
-                            spacing: 4px;
-
-                            HorizontalLayout {
+                            if (Store.show_cpu): HorizontalLayout {
                                 alignment: space-between;
-                                Text { text: disk.name; color: Theme.text; font-size: 9pt; }
                                 Text {
-                                    text: disk.usage.to-fixed(1) + "%";
-                                    color: root.get_disk_color(disk.usage);
+                                    text: "CPU";
+                                    color: Theme.text;
+                                    font-size: 9pt;
+                                }
+
+                                Text {
+                                    text: Store.cpu_usage.to-fixed(1) + "%";
+                                    color: root.get_cpu_color(Store.cpu_usage);
                                     font-size: 9pt;
                                 }
                             }
 
+                            if (Store.show_memory): HorizontalLayout {
+                                alignment: space-between;
+                                Text {
+                                    text: "内存占用";
+                                    color: Theme.text;
+                                    font-size: 9pt;
+                                }
+
+                                Text {
+                                    text: Store.memory_usage.to-fixed(1) + "%";
+                                    color: root.get_mem_color(Store.memory_usage);
+                                    font-size: 9pt;
+                                }
+                            }
+
+                            if (Store.show_disk_total): HorizontalLayout {
+                                alignment: space-between;
+                                Text {
+                                    text: "磁盘占用";
+                                    color: Theme.text;
+                                    font-size: 9pt;
+                                }
+
+                                Text {
+                                    text: Store.disk_usage.to-fixed(1) + "%";
+                                    color: root.get_disk_color(Store.disk_usage);
+                                    font-size: 9pt;
+                                }
+                            }
+                        }
+                    }
+
+                    if (Store.show_disk_io): Rectangle {
+                        width: 100%;
+                        height: disk_io_card.preferred-height;
+                        border-radius: 8px;
+                        background: Theme.card-bg;
+
+                        disk_io_card := VerticalLayout {
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            padding-top: 8px;
+                            padding-bottom: 8px;
+                            spacing: 4px;
+
+                            Text {
+                                text: "磁盘IO";
+                                color: Theme.sub-title;
+                                font-size: 10pt;
+                                font-weight: 600;
+                                letter-spacing: 2px;
+                            }
+
                             HorizontalLayout {
-                                spacing: 5px;
+                                spacing: 0px;
+
                                 Rectangle {
-                                    horizontal-stretch: 1;
+                                    width: 50%;
                                     background: transparent;
-                                    HorizontalLayout {
-                                        spacing: 0px;
+                                    clip: true;
+
+                                    VerticalLayout {
+                                        padding-left: 2px;
+                                        padding-right: 2px;
+                                        spacing: 2px;
+
                                         Text {
-                                            text: "R";
-                                            color: Theme.sub-title;
-                                            font-size: 8.5pt;
+                                            width: 100%;
+                                            text: "读取";
+                                            color: Theme.text;
+                                            font-size: 9pt;
+                                            horizontal-alignment: center;
                                         }
+
                                         Text {
-                                            width: 56px;
-                                            text: disk.read;
+                                            width: 100%;
+                                            text: Store.disk_total_read;
                                             color: Theme.text-low;
-                                            font-size: 8.5pt;
-                                            horizontal-alignment: right;
+                                            font-size: 9pt;
+                                            horizontal-alignment: center;
                                         }
                                     }
                                 }
 
                                 Rectangle {
-                                    width: 1px;
-                                    background: Theme.menu-border;
-                                }
-
-                                Rectangle {
-                                    horizontal-stretch: 1;
+                                    width: 50%;
                                     background: transparent;
-                                    HorizontalLayout {
-                                        spacing: 0px;
+                                    clip: true;
+
+                                    VerticalLayout {
+                                        padding-left: 2px;
+                                        padding-right: 2px;
+                                        spacing: 2px;
+
                                         Text {
-                                            text: "W";
-                                            color: Theme.text-mid;
-                                            font-size: 8.5pt;
+                                            width: 100%;
+                                            text: "写入";
+                                            color: Theme.text;
+                                            font-size: 9pt;
+                                            horizontal-alignment: center;
                                         }
+
                                         Text {
-                                            width: 56px;
-                                            text: disk.write;
+                                            width: 100%;
+                                            text: Store.disk_total_write;
                                             color: Theme.text-low;
-                                            font-size: 8.5pt;
-                                            horizontal-alignment: right;
+                                            font-size: 9pt;
+                                            horizontal-alignment: center;
                                         }
                                     }
                                 }
                             }
+                        }
+                    }
 
-                            if (Store.monitored_disks.length > 1 && disk.id != Store.monitored_disks[Store.monitored_disks.length - 1].id) : Rectangle {
-                                height: 1px;
-                                background: Theme.menu-border;
+                    if (Store.show_network): Rectangle {
+                        width: 100%;
+                        height: network_card.preferred-height;
+                        border-radius: 8px;
+                        background: Theme.card-bg;
+
+                        network_card := VerticalLayout {
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            padding-top: 8px;
+                            padding-bottom: 8px;
+                            spacing: 4px;
+
+                            Text {
+                                text: "网络";
+                                color: Theme.sub-title;
+                                font-size: 10pt;
+                                letter-spacing: 2px;
+                            }
+
+                            HorizontalLayout {
+                                spacing: 0px;
+
+                                Rectangle {
+                                    width: 50%;
+                                    background: transparent;
+                                    clip: true;
+
+                                    VerticalLayout {
+                                        padding-left: 2px;
+                                        padding-right: 2px;
+                                        spacing: 2px;
+
+                                        Text {
+                                            width: 100%;
+                                            text: "上传";
+                                            color: Theme.text;
+                                            font-size: 9pt;
+                                            horizontal-alignment: center;
+                                        }
+
+                                        Text {
+                                            width: 100%;
+                                            text: Store.network_tx;
+                                            color: Theme.text-low;
+                                            font-size: 9pt;
+                                            horizontal-alignment: center;
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: 50%;
+                                    background: transparent;
+                                    clip: true;
+
+                                    VerticalLayout {
+                                        padding-left: 2px;
+                                        padding-right: 2px;
+                                        spacing: 2px;
+
+                                        Text {
+                                            width: 100%;
+                                            text: "下载";
+                                            color: Theme.text;
+                                            font-size: 9pt;
+                                            horizontal-alignment: center;
+                                        }
+
+                                        Text {
+                                            width: 100%;
+                                            text: Store.network_rx;
+                                            color: Theme.text-low;
+                                            font-size: 9pt;
+                                            horizontal-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (Store.monitored_disks.length > 0): Rectangle {
+                        width: 100%;
+                        height: monitored_disks_card.preferred-height;
+                        border-radius: 8px;
+                        background: Theme.card-bg;
+
+                        monitored_disks_card := VerticalLayout {
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            padding-top: 8px;
+                            padding-bottom: 8px;
+                            spacing: 4px;
+
+                            Text {
+                                text: "磁盘监控";
+                                color: Theme.sub-title;
+                                font-size: 10pt;
+                                letter-spacing: 2px;
+                            }
+
+                            for disk in Store.monitored_disks: VerticalLayout {
+                                spacing: 4px;
+
+                                HorizontalLayout {
+                                    alignment: space-between;
+                                    Text {
+                                        text: disk.name;
+                                        color: Theme.text;
+                                        font-size: 9pt;
+                                    }
+
+                                    Text {
+                                        text: disk.usage.to-fixed(1) + "%";
+                                        color: root.get_disk_color(disk.usage);
+                                        font-size: 9pt;
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 5px;
+                                    Rectangle {
+                                        horizontal-stretch: 1;
+                                        background: transparent;
+                                        HorizontalLayout {
+                                            spacing: 0px;
+                                            Text {
+                                                text: "R";
+                                                color: Theme.sub-title;
+                                                font-size: 8.5pt;
+                                            }
+
+                                            Text {
+                                                width: 56px;
+                                                text: disk.read;
+                                                color: Theme.text-low;
+                                                font-size: 8.5pt;
+                                                horizontal-alignment: right;
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        width: 1px;
+                                        background: Theme.menu-border;
+                                    }
+
+                                    Rectangle {
+                                        horizontal-stretch: 1;
+                                        background: transparent;
+                                        HorizontalLayout {
+                                            spacing: 0px;
+                                            Text {
+                                                text: "W";
+                                                color: Theme.text-mid;
+                                                font-size: 8.5pt;
+                                            }
+
+                                            Text {
+                                                width: 56px;
+                                                text: disk.write;
+                                                color: Theme.text-low;
+                                                font-size: 8.5pt;
+                                                horizontal-alignment: right;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (Store.monitored_disks.length > 1 && disk.id != Store.monitored_disks[Store.monitored_disks.length - 1].id): Rectangle {
+                                    height: 1px;
+                                    background: Theme.menu-border;
+                                }
                             }
                         }
                     }
