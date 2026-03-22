@@ -2,8 +2,9 @@ use std::{os::windows::process::CommandExt, process::Command};
 
 use slint::ComponentHandle;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 
-use crate::{tools, ui, MAIN_HWND};
+use crate::{tools, trim_memory, ui, MAIN_HWND};
 
 const GITHUB_URL: &str = "https://github.com/Jaydar/meter-rs";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -54,6 +55,7 @@ impl AboutView {
 
     pub fn hide(&self) {
         let _ = self.ui.hide();
+        slint::Timer::single_shot(Duration::from_millis(200), trim_memory);
     }
 
     fn sync_content(&self) {

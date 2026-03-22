@@ -1,23 +1,33 @@
 use std::os::windows::process::CommandExt;
-use std::{env, process::Command};
+use std::{env, process::Command, thread};
 
 use i_slint_backend_winit::WinitWindowAccessor;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use slint::ComponentHandle;
 use windows::Win32::{
-    Foundation::{HWND, LPARAM, POINT, RECT, WPARAM},
+    Foundation::{CloseHandle, HWND, LPARAM, POINT, RECT, WPARAM},
     Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow},
-    System::Power::{ES_CONTINUOUS, ES_DISPLAY_REQUIRED, ES_SYSTEM_REQUIRED, SetThreadExecutionState},
+    System::{
+        Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
+            TH32CS_SNAPPROCESS,
+        },
+        Power::{ES_CONTINUOUS, ES_DISPLAY_REQUIRED, ES_SYSTEM_REQUIRED, SetThreadExecutionState},
+        ProcessStatus::EmptyWorkingSet,
+        Threading::{
+            OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_QUOTA,
+            SetProcessWorkingSetSize,
+        },
+    },
     UI::WindowsAndMessaging::{
         GWL_EXSTYLE, GetCursorPos, GetForegroundWindow, GetWindowLongPtrW, GetWindowRect,
         HWND_BROADCAST, SC_MONITORPOWER, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-        SWP_NOZORDER, SendMessageW, SetWindowLongPtrW, SetWindowPos, WM_SYSCOMMAND,
-        WS_EX_LAYERED, WS_EX_TRANSPARENT,
+        SWP_NOZORDER, SendMessageW, SetWindowLongPtrW, SetWindowPos, WM_SYSCOMMAND, WS_EX_LAYERED,
+        WS_EX_TRANSPARENT,
     },
 };
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-
 
 pub fn get_hwnd_by_window_handle<C: ComponentHandle>(view: &C) -> Option<HWND> {
     let mut hwnd_res = None;
@@ -154,6 +164,44 @@ pub fn restart_explorer() {
         .spawn();
 }
 
+pub fn clean_memory() {
+    let _ = thread::Builder::new()
+        .name("meter-rs-memory-clean".to_string())
+        .spawn(|| unsafe {
+            if let Ok(snapshot) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
+                let mut entry = PROCESSENTRY32W {
+                    dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+                    ..Default::default()
+                };
+
+                if Process32FirstW(snapshot, &mut entry).is_ok() {
+                    loop {
+                        let pid = entry.th32ProcessID;
+                        if pid != 0 {
+                            if let Ok(process) = OpenProcess(
+                                PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_QUOTA,
+                                false,
+                                pid,
+                            ) {
+                                let _ = SetProcessWorkingSetSize(process, usize::MAX, usize::MAX);
+                                let _ = EmptyWorkingSet(process);
+                                let _ = CloseHandle(process);
+                            }
+                        }
+
+                        if Process32NextW(snapshot, &mut entry).is_err() {
+                            break;
+                        }
+                    }
+                }
+
+                let _ = CloseHandle(snapshot);
+            }
+
+            crate::trim_memory();
+        });
+}
+
 pub fn is_auto_start() -> bool {
     let app_name = "Meter RS";
     let status = reg_command()
@@ -208,7 +256,12 @@ fn get_work_area_from_monitor(
     let mut mi = MONITORINFO::default();
     mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
     if unsafe { GetMonitorInfoW(h_monitor, &mut mi).as_bool() } {
-        return Some((mi.rcWork.left, mi.rcWork.top, mi.rcWork.right, mi.rcWork.bottom));
+        return Some((
+            mi.rcWork.left,
+            mi.rcWork.top,
+            mi.rcWork.right,
+            mi.rcWork.bottom,
+        ));
     }
     None
 }

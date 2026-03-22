@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{tools, ui, MAIN_HWND};
+use crate::{tools, trim_memory, ui, MAIN_HWND};
 
 use super::{Menu2View, Menu3View};
 use crate::view::AboutView;
@@ -13,20 +13,13 @@ use crate::view::AboutView;
 static LAST_MENU_SHOW_AT: OnceLock<Mutex<Instant>> = OnceLock::new();
 
 fn mark_shown_now_inner() {
-    if let Ok(mut shown_at) = LAST_MENU_SHOW_AT
-        .get_or_init(|| Mutex::new(Instant::now()))
-        .lock()
-    {
+    if let Ok(mut shown_at) = LAST_MENU_SHOW_AT.get_or_init(|| Mutex::new(Instant::now())).lock() {
         *shown_at = Instant::now();
     }
 }
 
 fn shown_recently_inner() -> bool {
-    let shown_at = LAST_MENU_SHOW_AT
-        .get_or_init(|| Mutex::new(Instant::now()))
-        .lock()
-        .map(|instant| *instant)
-        .unwrap_or_else(|_| Instant::now());
+    let shown_at = LAST_MENU_SHOW_AT.get_or_init(|| Mutex::new(Instant::now())).lock().map(|instant| *instant).unwrap_or_else(|_| Instant::now());
     shown_at.elapsed() < Duration::from_millis(500)
 }
 
@@ -58,6 +51,7 @@ fn hide_secondary_menus_inner() {
 fn hide_all_menus_inner(menu: &ui::MenuWindow) {
     hide_secondary_menus_inner();
     let _ = menu.hide();
+    Timer::single_shot(Duration::from_millis(200), trim_memory);
 }
 
 pub struct MenuView {
@@ -74,11 +68,7 @@ impl Default for MenuView {
 impl MenuView {
     pub fn new() -> Self {
         let ui = ui::MenuWindow::new().unwrap();
-        Self {
-            ui,
-            close_timer: Timer::default(),
-        }
-        .setup()
+        Self { ui, close_timer: Timer::default() }.setup()
     }
 
     fn setup(self) -> Self {
@@ -118,6 +108,7 @@ impl MenuView {
         });
         self.ui.on_turn_off_display(tools::turn_off_display);
         self.ui.on_restart_explorer(tools::restart_explorer);
+        self.ui.on_clean_memory(tools::clean_memory);
         self.ui.on_show_theme_submenu(move |_, offset_y| {
             if let Some(menu) = weak_theme.upgrade() {
                 menu.set_active_submenu(0);
@@ -155,57 +146,40 @@ impl MenuView {
             about.show();
         });
 
-        self.close_timer.start(
-            TimerMode::Repeated,
-            Duration::from_millis(150),
-            move || {
-                if let Some(menu) = weak_handle.upgrade() {
-                    if !menu.window().is_visible() {
-                        return;
-                    }
-                    if shown_recently_inner() {
-                        return;
-                    }
-
-                    let submenu = &ui::use_view::<Menu2View>().ui;
-                    let disk_menu = &ui::use_view::<Menu3View>().ui;
-                    let mouse = tools::get_current_mouse_position();
-
-                    let submenu_visible = submenu.window().is_visible();
-                    let disk_visible = disk_menu.window().is_visible();
-
-                    let mouse_in_main = window_contains_point_inner(&menu, mouse.x, mouse.y);
-                    let mouse_in_sub = submenu_visible && window_contains_point_inner(submenu, mouse.x, mouse.y);
-                    let mouse_in_disk = disk_visible && window_contains_point_inner(disk_menu, mouse.x, mouse.y);
-
-                    let menu_hwnd = tools::get_hwnd_by_window_handle(&menu);
-                    let submenu_hwnd = if submenu_visible {
-                        tools::get_hwnd_by_window_handle(submenu)
-                    } else {
-                        None
-                    };
-                    let disk_hwnd = if disk_visible {
-                        tools::get_hwnd_by_window_handle(disk_menu)
-                    } else {
-                        None
-                    };
-
-                    let main_active = menu_hwnd.map(tools::is_window_foreground).unwrap_or(false);
-                    let sub_active = submenu_hwnd.map(tools::is_window_foreground).unwrap_or(false);
-                    let disk_active = disk_hwnd.map(tools::is_window_foreground).unwrap_or(false);
-
-                    if !mouse_in_main
-                        && !mouse_in_sub
-                        && !mouse_in_disk
-                        && !main_active
-                        && !sub_active
-                        && !disk_active
-                    {
-                        hide_all_menus_inner(&menu);
-                    }
+        self.close_timer.start(TimerMode::Repeated, Duration::from_millis(150), move || {
+            if let Some(menu) = weak_handle.upgrade() {
+                if !menu.window().is_visible() {
+                    return;
                 }
-            },
-        );
+                if shown_recently_inner() {
+                    return;
+                }
+
+                let mouse = tools::get_current_mouse_position();
+
+                let submenu = &ui::use_view::<Menu2View>().ui;
+                let disk_menu = &ui::use_view::<Menu3View>().ui;
+
+                let submenu_visible = submenu.window().is_visible();
+                let disk_visible = disk_menu.window().is_visible();
+
+                let mouse_in_main = window_contains_point_inner(&menu, mouse.x, mouse.y);
+                let mouse_in_sub = submenu_visible && window_contains_point_inner(submenu, mouse.x, mouse.y);
+                let mouse_in_disk = disk_visible && window_contains_point_inner(disk_menu, mouse.x, mouse.y);
+
+                let menu_hwnd = tools::get_hwnd_by_window_handle(&menu);
+                let submenu_hwnd = if submenu_visible { tools::get_hwnd_by_window_handle(submenu) } else { None };
+                let disk_hwnd = if disk_visible { tools::get_hwnd_by_window_handle(disk_menu) } else { None };
+
+                let main_active = menu_hwnd.map(tools::is_window_foreground).unwrap_or(false);
+                let sub_active = submenu_hwnd.map(tools::is_window_foreground).unwrap_or(false);
+                let disk_active = disk_hwnd.map(tools::is_window_foreground).unwrap_or(false);
+
+                if !mouse_in_main && !mouse_in_sub && !mouse_in_disk && !main_active && !sub_active && !disk_active {
+                    hide_all_menus_inner(&menu);
+                }
+            }
+        });
 
         self.set_position()
     }
@@ -233,21 +207,18 @@ impl MenuView {
 
     fn set_position(self) -> Self {
         let weak = self.ui.as_weak();
-        let result = self
-            .ui
-            .window()
-            .set_rendering_notifier({
-                let weak = weak.clone();
-                let initialized = AtomicBool::new(false);
-                move |state, _| match state {
-                    RenderingState::BeforeRendering if !initialized.swap(true, Ordering::SeqCst) => {
-                        if let Some(menu) = weak.upgrade() {
-                            apply_main_menu_geometry_inner(&menu);
-                        }
+        let result = self.ui.window().set_rendering_notifier({
+            let weak = weak.clone();
+            let initialized = AtomicBool::new(false);
+            move |state, _| match state {
+                RenderingState::BeforeRendering if !initialized.swap(true, Ordering::SeqCst) => {
+                    if let Some(menu) = weak.upgrade() {
+                        apply_main_menu_geometry_inner(&menu);
                     }
-                    _ => {}
                 }
-            });
+                _ => {}
+            }
+        });
         if let Err(err) = result {
             match err {
                 slint::SetRenderingNotifierError::Unsupported => {

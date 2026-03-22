@@ -34,7 +34,7 @@ impl AppView {
             };
 
             if ui.window().winit_window().await.is_ok() {
-          
+
                 let hwnd = MAIN_HWND.load(Ordering::Relaxed);
                 if hwnd == 0 {
                     return;
@@ -71,7 +71,7 @@ impl AppView {
 
         self.ui.on_win_move({
             let weak = weak.clone();
-            move |delta_x, delta_y| {     
+            move |delta_x, delta_y| {
                 if let Some(view_inst) = weak.upgrade() {
                     let window = view_inst.window();
                     let scale_factor = window.scale_factor();

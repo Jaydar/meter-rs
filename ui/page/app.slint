@@ -9,9 +9,9 @@ export { MenuWindow, Menu2Window, Menu3Window, AboutWindow, Store, Theme }
 
 export component AppWindow inherits Window {
     title: "Meter RS";
-    
+
     always-on-top: root.always_on_top_state;
-    
+
     no-frame: true;
     background: transparent;
     default-font-size: Theme.font-size;
@@ -22,7 +22,7 @@ export component AppWindow inherits Window {
 
     in-out property <bool> always_on_top_state: true;
 
-    
+
 
     function get_cpu_color(usage: float) -> color {
         return usage > 50 ? Theme.text-high : (usage > 20 ? Theme.text-mid : Theme.text-low);
@@ -53,7 +53,7 @@ export component AppWindow inherits Window {
 
             TouchArea {
                 width: 100%;
-      
+
                 mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
 
                 moved => {
@@ -78,7 +78,7 @@ export component AppWindow inherits Window {
 
             TouchArea {
                 width: 100%;
-                
+
                 mouse-cursor: MouseCursor.default;
 
                 pointer-event(event) => {
