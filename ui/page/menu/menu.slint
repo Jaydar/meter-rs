@@ -3,9 +3,10 @@ import { Theme } from "../../theme.slint";
 import { MenuItem } from "widget/menu-item.slint";
 
 export component MenuWindow inherits Window {
+    title: "menu";
     width: 180px;
-    height: content.preferred-height;
-    // background: transparent;
+    background: transparent;
+    in-out property <length> height_bias: 0px;
     no-frame: true;
     always-on-top: true;
 
@@ -31,13 +32,14 @@ export component MenuWindow inherits Window {
     content := Rectangle {
         width: 100%;
         height: 100%;
+        preferred-height: layout.preferred-height;
         border-radius: 10px;
         background: Theme.menu-bg;
         border-width: 1px;
         border-color: Theme.menu-border;
-        // drop-shadow-blur: 14px;
-        // clip: true;
-        VerticalLayout {
+        drop-shadow-blur: 14px;
+        clip: true;
+        layout := VerticalLayout {
             padding: 8px;
             spacing: 2px;
 
@@ -188,4 +190,6 @@ export component MenuWindow inherits Window {
             }
         }
     }
+
+    height: content.preferred-height + root.height_bias;
 }

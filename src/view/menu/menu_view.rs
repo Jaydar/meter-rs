@@ -1,3 +1,4 @@
+use i_slint_backend_winit::WinitWindowAccessor;
 use slint::{ComponentHandle, RenderingState, Timer, TimerMode};
 use std::{
     sync::atomic::{AtomicBool, Ordering},
@@ -11,6 +12,9 @@ use super::{Menu2View, Menu3View};
 use crate::view::AboutView;
 
 static LAST_MENU_SHOW_AT: OnceLock<Mutex<Instant>> = OnceLock::new();
+const MENU_HEIGHT_BIAS: f32 = 0.01;
+const MENU_GEOMETRY_RETRY_DELAY: Duration = Duration::from_millis(16);
+const MENU_GEOMETRY_RETRY_ATTEMPTS: u8 = 30;
 
 fn mark_shown_now_inner() {
     if let Ok(mut shown_at) = LAST_MENU_SHOW_AT.get_or_init(|| Mutex::new(Instant::now())).lock() {
@@ -29,6 +33,11 @@ fn window_contains_point_inner<C: ComponentHandle>(view: &C, x: i32, y: i32) -> 
     x >= pos.x && x <= pos.x + size.width as i32 && y >= pos.y && y <= pos.y + size.height as i32
 }
 
+fn menu_has_valid_size_inner(menu: &ui::MenuWindow) -> bool {
+    let size = menu.window().size();
+    size.width > 0 && size.height > 0
+}
+
 fn apply_main_menu_geometry_inner(menu: &ui::MenuWindow) {
     let hwnd = MAIN_HWND.load(Ordering::Relaxed);
     if hwnd == 0 {
@@ -39,6 +48,34 @@ fn apply_main_menu_geometry_inner(menu: &ui::MenuWindow) {
         let position = tools::get_menu_position((size.width as i32, size.height as i32), work_area);
         menu.window().set_position(slint::PhysicalPosition::new(position.0, position.1));
     }
+}
+
+fn ensure_main_menu_geometry_inner(menu: &ui::MenuWindow) {
+    if menu_has_valid_size_inner(menu) {
+        apply_main_menu_geometry_inner(menu);
+        menu.window().request_redraw();
+        return;
+    }
+
+    retry_main_menu_geometry_inner(menu.as_weak(), MENU_GEOMETRY_RETRY_ATTEMPTS);
+}
+
+fn retry_main_menu_geometry_inner(menu: slint::Weak<ui::MenuWindow>, remaining_attempts: u8) {
+    Timer::single_shot(MENU_GEOMETRY_RETRY_DELAY, move || {
+        let Some(menu) = menu.upgrade() else {
+            return;
+        };
+        if !menu.window().is_visible() {
+            return;
+        }
+        if menu_has_valid_size_inner(&menu) {
+            apply_main_menu_geometry_inner(&menu);
+            menu.window().request_redraw();
+        } else if remaining_attempts > 0 {
+            menu.window().request_redraw();
+            retry_main_menu_geometry_inner(menu.as_weak(), remaining_attempts - 1);
+        }
+    });
 }
 
 fn hide_secondary_menus_inner() {
@@ -196,9 +233,18 @@ impl MenuView {
         self.ui.set_prevent_sleep_state(app_store.get_prevent_sleep());
         self.ui.set_active_submenu(-1);
         hide_secondary_menus_inner();
-        apply_main_menu_geometry_inner(&self.ui);
+        let next_height_bias = if self.ui.get_height_bias() == 0.0 { MENU_HEIGHT_BIAS } else { 0.0 };
+        self.ui.set_height_bias(next_height_bias);
         let _ = self.ui.show();
-        self.ui.window().request_redraw();
+        let weak = self.ui.as_weak();
+        slint::spawn_local(async move {
+            let Some(menu) = weak.upgrade() else {
+                return;
+            };
+            let _ = menu.window().winit_window().await.ok();
+            ensure_main_menu_geometry_inner(&menu);
+        })
+        .expect("failed to await menu winit window");
     }
 
     pub fn hide_all_menus(&self) {
@@ -213,7 +259,7 @@ impl MenuView {
             move |state, _| match state {
                 RenderingState::BeforeRendering if !initialized.swap(true, Ordering::SeqCst) => {
                     if let Some(menu) = weak.upgrade() {
-                        apply_main_menu_geometry_inner(&menu);
+                        ensure_main_menu_geometry_inner(&menu);
                     }
                 }
                 _ => {}
@@ -223,11 +269,16 @@ impl MenuView {
             match err {
                 slint::SetRenderingNotifierError::Unsupported => {
                     let weak = weak.clone();
-                    Timer::single_shot(Duration::ZERO, move || {
-                        if let Some(menu) = weak.upgrade() {
-                            apply_main_menu_geometry_inner(&menu);
-                        }
-                    });
+                    slint::spawn_local(async move {
+                        let Some(menu) = weak.upgrade() else {
+                            return;
+                        };
+                        let _ = menu.window().winit_window().await.ok();
+                        Timer::single_shot(Duration::ZERO, move || {
+                            ensure_main_menu_geometry_inner(&menu);
+                        });
+                    })
+                    .expect("failed to await menu winit window for unsupported notifier");
                 }
                 _ => panic!("set_rendering_notifier error: {err}"),
             }
