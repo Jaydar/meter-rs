@@ -1,10 +1,12 @@
 #![allow(non_upper_case_globals)]
 
 use std::{
-    any::{Any, TypeId},
+    any::TypeId,
     cell::RefCell,
     collections::HashMap,
 };
+
+use crate::view::ViewTrait;
 
 slint::include_modules!();
 
@@ -13,33 +15,29 @@ thread_local! {
 }
 
 pub struct ViewManager {
-    pages: HashMap<TypeId, Box<dyn Any>>,
+    pages: HashMap<TypeId, &'static dyn ViewTrait>,
 }
 
 impl ViewManager {
     pub fn new() -> Self {
-        Self {
-            pages: HashMap::new(),
-        }
+        Self { pages: HashMap::new() }
     }
 
-    pub fn get_static<T: 'static + Default>(&mut self) -> &'static T {
+    pub fn get_static<T: 'static + ViewTrait>(&mut self) -> &'static T {
         let type_id = TypeId::of::<T>();
+        let page = *self
+            .pages
+            .entry(type_id)
+            .or_insert_with(|| Box::leak(Box::new(T::new())) as &'static dyn ViewTrait);
 
-        self.pages.entry(type_id).or_insert_with(|| {
-            let leaked_ref: &'static T = Box::leak(Box::new(T::default()));
-            Box::new(leaked_ref)
-        });
-
-        self.pages
-            .get(&type_id)
-            .unwrap()
-            .downcast_ref::<&'static T>()
-            .copied()
-            .unwrap()
+        page.as_any()
+            .downcast_ref::<T>()
+            .expect("view manager stored a different type for this TypeId")
     }
+
+    pub fn sync_store(&mut self) {}
 }
 
-pub fn use_view<T: 'static + Default>() -> &'static T {
+pub fn use_view<T: 'static + ViewTrait>() -> &'static T {
     MANAGER.with(|manager| manager.borrow_mut().get_static::<T>())
 }

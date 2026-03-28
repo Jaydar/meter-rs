@@ -1,39 +1,45 @@
 use slint::{ComponentHandle, Model, ModelRc};
 
-use crate::ui;
-use crate::view::AboutView;
-
-use super::{calc_menu_show_position, Menu3View, MenuView};
+use crate::{
+    ui,
+    view::{AboutView, ViewTrait},
+};
+use anyhow::Result;
+use super::{calc_menu_show_position, close_menus, Menu1View, Menu3View};
 
 pub struct Menu2View {
     pub ui: ui::Menu2Window,
 }
 
-impl Default for Menu2View {
-    fn default() -> Self {
-        Menu2View::new()
-    }
-}
-
-impl Menu2View {
-    pub fn new() -> Self {
+impl ViewTrait for Menu2View {
+    fn new() -> Self {
         let ui = ui::Menu2Window::new().unwrap();
-        Self { ui }.setup()
+        Self { ui }.bind_event()
     }
 
-    fn setup(self) -> Self {
+    fn show(&self) -> Result<()> {
+        let _ = self.ui.show();
+        Ok(())
+    }
+
+    fn hide(&self) {
+        Menu2View::hide(self);
+    }
+
+    fn set_position(&self) {}
+
+    fn bind_event(self) -> Self {
         let weak = self.ui.as_weak();
         self.ui.on_close_menu(|| {
-            let menu_view = ui::use_view::<MenuView>();
-            menu_view.hide_all_menus();
+            close_menus(1);
         });
         self.ui.on_set_theme(|theme_mode| {
             let app_view = ui::use_view::<crate::view::AppView>();
             app_view.ui.global::<ui::Store>().set_theme_mode(theme_mode);
             app_view.ui.global::<ui::Theme>().set_mode(theme_mode);
-            let menu_view = ui::use_view::<MenuView>();
-            menu_view.ui.global::<ui::Store>().set_theme_mode(theme_mode);
-            menu_view.ui.global::<ui::Theme>().set_mode(theme_mode);
+            let menu1_view = ui::use_view::<Menu1View>();
+            menu1_view.ui.global::<ui::Store>().set_theme_mode(theme_mode);
+            menu1_view.ui.global::<ui::Theme>().set_mode(theme_mode);
             let menu2_view = ui::use_view::<Menu2View>();
             menu2_view.ui.global::<ui::Store>().set_theme_mode(theme_mode);
             menu2_view.ui.global::<ui::Theme>().set_mode(theme_mode);
@@ -81,12 +87,15 @@ impl Menu2View {
             let menu2_view = ui::use_view::<Menu2View>();
             menu2_view.ui.set_show_network_state(value);
         });
-        self.ui.on_show_disk_monitor_submenu(move |_, offset_y| {
-            if let Some(weak) = weak.upgrade() {
-                let pos = weak.window().position();
-                let scaled_y = (offset_y * weak.window().scale_factor()).round() as f32;
-                let menu3_view = ui::use_view::<Menu3View>();
-                menu3_view.show(pos.x as f32, pos.y as f32, scaled_y);
+        self.ui.on_show_disk_monitor_submenu({
+            let weak = weak.clone();
+            move |_, offset_y| {
+                if let Some(menu) = weak.upgrade() {
+                    let pos = menu.window().position();
+                    let scaled_y = (offset_y * menu.window().scale_factor()).round() as f32;
+                    let menu3_view = ui::use_view::<Menu3View>();
+                    menu3_view.show(pos.x as f32, pos.y as f32, scaled_y);
+                }
             }
         });
         self.ui.on_hide_disk_monitor_submenu(|| {
@@ -117,6 +126,14 @@ impl Menu2View {
         self
     }
 
+    fn sync_store(&self) {}
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl Menu2View {
     pub fn show(&self, kind: ui::SubmenuKind, parent_pos_x: f32, parent_pos_y: f32, offset_y: f32) {
         let app_view = ui::use_view::<crate::view::AppView>();
         let app_store = app_view.ui.global::<ui::Store>();

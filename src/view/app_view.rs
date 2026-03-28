@@ -1,34 +1,52 @@
 use i_slint_backend_winit::WinitWindowAccessor;
 use slint::ComponentHandle;
+use winit::platform::windows::WindowAttributesExtWindows;
 use std::sync::atomic::Ordering;
+use anyhow::Result;
 
-use crate::{base, tools, ui, view::MenuView, MAIN_HWND};
+use crate::{
+    MAIN_HWND, base, task, tools, ui, view::{Menu1View, ViewTrait}
+};
 
 pub struct AppView {
     pub ui: ui::AppWindow,
 }
 
-impl Default for AppView {
-    fn default() -> Self {
-        AppView::new()
+
+
+impl AppView {
+
+    pub fn init_backend(renderer_name: &str) -> Result<()>{
+        let mut backend = i_slint_backend_winit::Backend::new_with_renderer_by_name(Some(renderer_name))?;
+        backend.window_attributes_hook = Some(Box::new(|attr| attr.with_skip_taskbar(true)));
+        slint::platform::set_platform(Box::new(backend))?;
+        
+        Ok(())
     }
 }
 
-impl AppView {
-    pub fn new() -> Self {
-        Self { ui: ui::AppWindow::new().unwrap() }.setup()
+impl ViewTrait for AppView {
+    fn new() -> Self {
+        Self { ui: ui::AppWindow::new().unwrap() }.bind_event()
     }
 
-    pub fn setup(self) -> Self {
-        self.setup_window_events();
-        let store = self.ui.global::<ui::Store>();
-        store.set_auto_start(tools::is_auto_start());
-        self
+    fn show(&self) -> Result<()> {
+        self.ui.show()?;
+        self.set_position();
+        task::start_monitor(&self.ui);
+        slint::run_event_loop()?;
+        Ok(())
     }
 
-    pub fn set_position(&self) {
+    fn hide(&self) {
+        let _ =self.ui.hide();
+    }
+
+    fn set_position(&self) {
         let weak = self.ui.as_weak();
+
         slint::spawn_local(async move {
+
             let Some(ui) = weak.upgrade() else {
                 return;
             };
@@ -50,23 +68,12 @@ impl AppView {
                     ui.window().set_position(slint::PhysicalPosition::new(x, y));
                 }
             }
-        })
-        .expect("failed to set window position");
+
+        }).unwrap();
+
     }
 
-    pub fn show(&self) -> Result<(), slint::PlatformError> {
-        self.ui.show()?;
-        self.set_position();
-        Ok(())
-    }
-
-    pub fn run(&self) -> Result<(), slint::PlatformError> {
-        self.show()?;
-        slint::run_event_loop()?;
-        Ok(())
-    }
-
-    fn setup_window_events(&self) {
+    fn bind_event(self) -> Self {
         let weak = self.ui.as_weak();
 
         self.ui.on_win_move({
@@ -126,8 +133,18 @@ impl AppView {
         });
 
         self.ui.on_show_menu(move |_, _| {
-            let menu_view = ui::use_view::<MenuView>();
+            let menu_view = ui::use_view::<Menu1View>();
             menu_view.show();
         });
+
+        self
+    }
+
+    fn sync_store(&self) {
+
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }

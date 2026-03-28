@@ -2,14 +2,14 @@
 import { Theme } from "../../theme.slint";
 import { MenuItem } from "widget/menu-item.slint";
 
-export component MenuWindow inherits Window {
+export component Menu1Window inherits Window {
     title: "menu";
     width: 180px;
-    background: transparent;
-    in-out property <length> height_bias: 0px;
     no-frame: true;
     always-on-top: true;
+    background: transparent;
 
+    in-out property <length> height_bias: 0px;
     in-out property <bool> auto_start_state: false;
     in-out property <bool> mouse_passthrough_state: false;
     in-out property <bool> prevent_sleep_state: false;
@@ -31,8 +31,8 @@ export component MenuWindow inherits Window {
 
     content := Rectangle {
         width: 100%;
-        height: 100%;
-        preferred-height: layout.preferred-height;
+        // height: 100%;
+        // preferred-height: layout.preferred-height;
         border-radius: 10px;
         background: Theme.menu-bg;
         border-width: 1px;

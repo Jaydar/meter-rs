@@ -8,9 +8,9 @@ export component AboutWindow inherits Window {
     no-frame: true;
     always-on-top: true;
 
-    in-out property <string> app_name: "Meter RS";
-    in-out property <string> version_text: "v0.0.0";
-    in-out property <string> github_url: "https://github.com/Jaydar/meter-rs";
+    in-out property <string> app_name;
+    in-out property <string> version_text;
+    in-out property <string> github_url;
     in-out property <string> oss_notice:
         "使用到的开源包:\n- slint / i-slint-backend-winit\n- tokio\n- sysinfo\n- windows\n- anyhow\n- winit\n- raw-window-handle\n\n请在分发时遵循各依赖许可证要求 (MIT/Apache-2.0 等)。";
 
@@ -21,7 +21,7 @@ export component AboutWindow inherits Window {
         width: 100%;
         height: 100%;
         border-radius: 10px;
-        background: Theme.menu-bg;
+        background: Theme.window-bg;
         border-width: 1px;
         border-color: Theme.menu-border;
         drop-shadow-blur: 16px;
