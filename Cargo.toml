@@ -1,6 +1,6 @@
 [package]
 name = "meter-rs"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 build = "build.rs"
 repository = "https://github.com/Jaydar/meter-rs"
@@ -32,6 +32,7 @@ windows = { version = "0.62.2", features = [
 
 [build-dependencies]
 slint-build = "1.15.1"
+winresource = "0.1.31"
 
 [package.metadata.winresource]
 ProductName = "Meter RS"
