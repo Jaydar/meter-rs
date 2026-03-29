@@ -2,14 +2,14 @@
 import { Theme } from "../../theme.slint";
 import { MenuItem } from "widget/menu-item.slint";
 
-export component MenuWindow inherits Window {
+export component Menu1Window inherits Window {
+    title: "menu";
     width: 180px;
-    height: content.preferred-height;
-    background: transparent;
     no-frame: true;
     always-on-top: true;
-   
+    background: transparent;
 
+    in-out property <length> height_bias: 0px;
     in-out property <bool> auto_start_state: false;
     in-out property <bool> mouse_passthrough_state: false;
     in-out property <bool> prevent_sleep_state: false;
@@ -22,6 +22,7 @@ export component MenuWindow inherits Window {
     callback set_prevent_sleep(bool);
     callback turn_off_display();
     callback restart_explorer();
+    callback clean_memory();
     callback show_theme_submenu(length, length);
     callback show_display_submenu(length, length);
     callback show_window_submenu(length, length);
@@ -30,14 +31,15 @@ export component MenuWindow inherits Window {
 
     content := Rectangle {
         width: 100%;
-        height: 100%;
+        // height: 100%;
+        // preferred-height: layout.preferred-height;
         border-radius: 10px;
         background: Theme.menu-bg;
         border-width: 1px;
         border-color: Theme.menu-border;
         drop-shadow-blur: 14px;
         clip: true;
-        VerticalLayout {
+        layout := VerticalLayout {
             padding: 8px;
             spacing: 2px;
 
@@ -51,6 +53,7 @@ export component MenuWindow inherits Window {
                     root.show_theme_submenu(theme_item.x, theme_item.y);
                 }
             }
+
             display_item := MenuItem {
                 text: "显示设置";
                 icon: "\u{ef72}";
@@ -61,6 +64,7 @@ export component MenuWindow inherits Window {
                     root.show_display_submenu(display_item.x, display_item.y);
                 }
             }
+
             window_item := MenuItem {
                 text: "窗口";
                 icon: "\u{f1d9}";
@@ -72,7 +76,10 @@ export component MenuWindow inherits Window {
                 }
             }
 
-            Rectangle { height: 1px; background: Theme.menu-border; }
+            Rectangle {
+                height: 1px;
+                background: Theme.menu-border;
+            }
 
             MenuItem {
                 text: "鼠标穿透";
@@ -87,6 +94,7 @@ export component MenuWindow inherits Window {
                     root.close_menu();
                 }
             }
+
             MenuItem {
                 text: "禁止休眠";
                 checked: root.prevent_sleep_state;
@@ -100,6 +108,7 @@ export component MenuWindow inherits Window {
                     root.close_menu();
                 }
             }
+
             MenuItem {
                 text: "开机自启";
                 checked: root.auto_start_state;
@@ -113,6 +122,7 @@ export component MenuWindow inherits Window {
                     root.close_menu();
                 }
             }
+
             MenuItem {
                 text: "关闭显示器";
                 hovered => {
@@ -124,6 +134,7 @@ export component MenuWindow inherits Window {
                     root.close_menu();
                 }
             }
+
             MenuItem {
                 text: "重启资源管理器";
                 hovered => {
@@ -136,7 +147,22 @@ export component MenuWindow inherits Window {
                 }
             }
 
-            Rectangle { height: 1px; background: Theme.menu-border; }
+            MenuItem {
+                text: "内存清理";
+                hovered => {
+                    root.active_submenu = -1;
+                    root.hide_submenu();
+                }
+                clicked => {
+                    root.clean_memory();
+                    root.close_menu();
+                }
+            }
+
+            Rectangle {
+                height: 1px;
+                background: Theme.menu-border;
+            }
 
             MenuItem {
                 text: "关于 Meter RS";
@@ -158,10 +184,12 @@ export component MenuWindow inherits Window {
                     root.active_submenu = -1;
                     root.hide_submenu();
                 }
-                clicked => { root.close_app(); }
+                clicked => {
+                    root.close_app();
+                }
             }
         }
     }
+
+    height: content.preferred-height + root.height_bias;
 }
-
-

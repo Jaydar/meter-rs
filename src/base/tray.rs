@@ -1,20 +1,19 @@
 use std::thread;
 
+use i_slint_backend_winit::WinitWindowAccessor;
+use slint::ComponentHandle;
 use windows::{
     core::w,
     Win32::{
         Foundation::{HWND, LPARAM, LRESULT, WPARAM},
         UI::{
             Shell::{Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NOTIFYICONDATAW},
-            WindowsAndMessaging::{
-                CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, LoadIconW,
-                PostQuitMessage, RegisterClassW, TranslateMessage, CS_HREDRAW, CS_VREDRAW,
-                HMENU, IDI_APPLICATION, MSG, WINDOW_EX_STYLE, WM_CONTEXTMENU, WM_DESTROY,
-                WM_RBUTTONUP, WM_USER, WNDCLASSW, WS_OVERLAPPED,
-            },
+            WindowsAndMessaging::{CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, LoadIconW, PostQuitMessage, RegisterClassW, TranslateMessage, CS_HREDRAW, CS_VREDRAW, HMENU, IDI_APPLICATION, MSG, WINDOW_EX_STYLE, WM_CONTEXTMENU, WM_DESTROY, WM_RBUTTONUP, WM_USER, WNDCLASSW, WS_OVERLAPPED},
         },
     },
 };
+
+use crate::view::ViewTrait;
 
 const TRAY_ICON_ID: u32 = 1001;
 const TRAY_MESSAGE: u32 = WM_USER + 1;
@@ -27,30 +26,12 @@ pub fn setup(_hwnd: usize) {
 
 fn run_tray_loop() -> windows::core::Result<()> {
     let class_name = w!("MonRsTrayWindow");
-    let wc = WNDCLASSW {
-        style: CS_HREDRAW | CS_VREDRAW,
-        lpfnWndProc: Some(wnd_proc),
-        lpszClassName: class_name,
-        ..Default::default()
-    };
+    let wc = WNDCLASSW { style: CS_HREDRAW | CS_VREDRAW, lpfnWndProc: Some(wnd_proc), lpszClassName: class_name, ..Default::default() };
 
     unsafe {
         let _ = RegisterClassW(&wc);
 
-        let hwnd = CreateWindowExW(
-            WINDOW_EX_STYLE(0),
-            class_name,
-            w!("MonRsTrayHost"),
-            WS_OVERLAPPED,
-            0,
-            0,
-            0,
-            0,
-            Some(HWND::default()),
-            Some(HMENU::default()),
-            None,
-            None,
-        )?;
+        let hwnd = CreateWindowExW(WINDOW_EX_STYLE(0), class_name, w!("MonRsTrayHost"), WS_OVERLAPPED, 0, 0, 0, 0, Some(HWND::default()), Some(HMENU::default()), None, None)?;
 
         add_tray_icon(hwnd)?;
 
@@ -89,7 +70,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
             let event = lparam.0 as u32;
             if event == WM_RBUTTONUP || event == WM_CONTEXTMENU {
                 let _ = slint::invoke_from_event_loop(|| {
-                    let menu_view = crate::ui::use_view::<crate::view::MenuView>();
+                    let menu_view = crate::ui::use_view::<crate::view::Menu1View>();
                     menu_view.show();
                 });
             }
@@ -97,12 +78,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
         }
         WM_DESTROY => {
             unsafe {
-                let nid = NOTIFYICONDATAW {
-                    cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
-                    hWnd: hwnd,
-                    uID: TRAY_ICON_ID,
-                    ..Default::default()
-                };
+                let nid = NOTIFYICONDATAW { cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32, hWnd: hwnd, uID: TRAY_ICON_ID, ..Default::default() };
                 let _ = Shell_NotifyIconW(NIM_DELETE, &nid);
                 PostQuitMessage(0);
             }
@@ -111,4 +87,3 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
         _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
     }
 }
-

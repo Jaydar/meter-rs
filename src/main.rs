@@ -1,20 +1,25 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
 use anyhow::Result;
-use windows::Win32::{Foundation::{HWND, LPARAM, WPARAM}, UI::WindowsAndMessaging::GetClassNameW};
-use winit::platform::windows::WindowAttributesExtWindows;
+use std::{process::Command, sync::atomic::{AtomicUsize, Ordering}};
+use windows::Win32::{
+    Foundation::{HWND, LPARAM, WPARAM},
+    UI::WindowsAndMessaging::GetClassNameW,
+};
 
-mod view;
+
 mod base;
 mod ui;
+mod view;
 
 pub use base::{hook, task, tools, tray};
+use crate::view::ViewTrait;
 
 pub static MAIN_HWND: AtomicUsize = AtomicUsize::new(0);
+const SOFTWARE_FALLBACK_ENV: &str = "METER_FORCE_SOFTWARE_RENDERER";
 
-fn trim_memory() {
+pub fn trim_memory() {
+    #[cfg(windows)]
     unsafe {
         use windows::Win32::System::ProcessStatus::EmptyWorkingSet;
         use windows::Win32::System::Threading::GetCurrentProcess;
@@ -24,9 +29,7 @@ fn trim_memory() {
     }
 }
 
-fn main() -> Result<()> {
-  
-
+fn install_main_window_hook() {
     hook::install_win32_hook(|_n_code: i32, w_param: WPARAM, _l_param: LPARAM| {
         let hwnd = HWND(w_param.0 as _);
         let mut class_name = [0u16; 256];
@@ -36,23 +39,39 @@ fn main() -> Result<()> {
         if name.contains("Window Class") {
             let hwnd = hwnd.0 as usize;
             hook::uninstall_win32_hook();
-            MAIN_HWND.store(hwnd, Ordering::Relaxed);
+            MAIN_HWND.store(hwnd, Ordering::Release);
             tray::setup(hwnd);
         }
     });
+}
 
-    let mut backend = i_slint_backend_winit::Backend::new().unwrap();
-    backend.window_attributes_hook = Some(Box::new(|attr| {
-        attr.with_skip_taskbar(true)
-    }));
-
-    slint::platform::set_platform(Box::new(backend)).expect("Failed to set platform");
-
+fn run_app(renderer_name: &str) -> Result<()> {
+    install_main_window_hook();
+    view::AppView::init_backend(renderer_name)?;
     let app = ui::use_view::<view::AppView>();
-    task::start_monitor(&app.ui);
+    app.show()?;
 
-    #[cfg(windows)]
-    trim_memory();
-    app.run()?;
     Ok(())
+}
+
+fn relaunch_with_software_renderer() -> Result<()> {
+    let exe = std::env::current_exe()?;
+    let args: Vec<String> = std::env::args().skip(1).collect();
+
+    Command::new(exe)
+        .args(args)
+        .env(SOFTWARE_FALLBACK_ENV, "1")
+        .spawn()?;
+    std::process::exit(0);
+}
+
+fn main() -> Result<()> {
+    if std::env::var_os(SOFTWARE_FALLBACK_ENV).is_some() {
+        return run_app("software");
+    }
+
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run_app("femtovg"))) {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(_)) | Err(_) => relaunch_with_software_renderer(),
+    }
 }
