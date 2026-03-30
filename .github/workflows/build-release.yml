@@ -62,8 +62,8 @@ jobs:
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item target\x86_64-pc-windows-msvc\release\meter-rs.exe dist\meter-rs-msvs.exe
-          Copy-Item target\x86_64-pc-windows-gnu\release\meter-rs.exe dist\meter-rs-gnu.exe
+          Copy-Item target\x86_64-pc-windows-msvc\release\meter-rs.exe dist\meter-rs_msvs.exe
+          Copy-Item target\x86_64-pc-windows-gnu\release\meter-rs.exe dist\meter-rs_gnu.exe
 
       - name: Publish rolling release
         uses: ncipollo/release-action@v1
@@ -75,4 +75,4 @@ jobs:
           allowUpdates: true
           removeArtifacts: true
           replacesArtifacts: true
-          artifacts: dist/meter-rs-msvs.exe,dist/meter-rs-gnu.exe
+          artifacts: dist/meter-rs_msvs.exe,dist/meter-rs_gnu.exe
