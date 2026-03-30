@@ -4,20 +4,13 @@ use slint::ComponentHandle;
 use std::sync::atomic::Ordering;
 use anyhow::Result;
 
-use crate::{tools, trim_memory, ui, view::ViewTrait, MAIN_HWND};
+use crate::{tools, ui, view::ViewTrait, MAIN_HWND};
 
 const GITHUB_URL: &str = "https://github.com/Jaydar/meter-rs";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 pub struct AboutView {
     pub ui: ui::AboutWindow,
-}
-impl AboutView {
-    fn sync_content(&self) {
-        self.ui
-            .set_version_text(format!("v{}", env!("CARGO_PKG_VERSION")).into());
-        self.ui.set_github_url(GITHUB_URL.into());
-    }
 }
 
 
@@ -37,14 +30,14 @@ impl ViewTrait for AboutView {
         self.ui.global::<ui::Store>().set_theme_mode(theme_mode);
         self.ui.global::<ui::Theme>().set_mode(theme_mode);
         
-        self.ui.show();
+        let _ = self.ui.show();
         self.set_position();
 
         Ok(())
     }
 
     fn hide(&self) {
-        self.ui.hide();
+        let _ = self.ui.hide();
         // slint::Timer::single_shot(Duration::from_millis(200), trim_memory);
     }
 
@@ -67,7 +60,7 @@ impl ViewTrait for AboutView {
 
     fn bind_event(self) -> Self {
         self.ui.set_version_text(format!("v{}", env!("CARGO_PKG_VERSION")).into());
-        self.ui.set_github_url(GITHUB_URL.into());
+        self.ui.set_github_url(env!("CARGO_PKG_REPOSITORY").into());
         self.ui.on_close_about(|| {
             let about = ui::use_view::<crate::view::AboutView>();
             about.hide();
@@ -82,7 +75,7 @@ impl ViewTrait for AboutView {
     }
 
     fn sync_store(&self) {
-        self.sync_content();
+        
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

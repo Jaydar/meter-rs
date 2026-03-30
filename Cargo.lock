@@ -2670,6 +2670,7 @@ name = "meter-rs"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "i-slint-backend-selector",
  "i-slint-backend-winit",
  "raw-window-handle",
  "slint",

@@ -16,10 +16,11 @@ pub struct AppView {
 
 impl AppView {
 
-    pub fn init_backend(renderer_name: &str) -> Result<()>{
-        let mut backend = i_slint_backend_winit::Backend::new_with_renderer_by_name(Some(renderer_name))?;
-        backend.window_attributes_hook = Some(Box::new(|attr| attr.with_skip_taskbar(true)));
-        slint::platform::set_platform(Box::new(backend))?;
+    pub fn init_backend() -> Result<()>{
+        println!("11111111111");
+        i_slint_backend_selector::api::BackendSelector::new()
+        .with_winit_window_attributes_hook(|attr| attr.with_skip_taskbar(true))
+        .select()?;
         
         Ok(())
     }

@@ -13,6 +13,7 @@ repository = "https://github.com/Jaydar/meter-rs"
 anyhow = "1.0.102"
 slint = { version = "1.15.1", features = ["raw-window-handle-06", "unstable-winit-030","backend-winit","renderer-femtovg","renderer-software"] }
 i-slint-backend-winit = { version = "1.15.1", features = ["renderer-femtovg","renderer-software"] }
+i-slint-backend-selector = "1.15.1"
 
 raw-window-handle = "0.6.2"
 winit = "0.30.13"

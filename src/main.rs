@@ -16,7 +16,7 @@ pub use base::{hook, task, tools, tray};
 use crate::view::ViewTrait;
 
 pub static MAIN_HWND: AtomicUsize = AtomicUsize::new(0);
-const SOFTWARE_FALLBACK_ENV: &str = "METER_FORCE_SOFTWARE_RENDERER";
+
 
 pub fn trim_memory() {
     #[cfg(windows)]
@@ -45,33 +45,32 @@ fn install_main_window_hook() {
     });
 }
 
-fn run_app(renderer_name: &str) -> Result<()> {
+fn run_app() -> Result<()> {
     install_main_window_hook();
-    view::AppView::init_backend(renderer_name)?;
+    view::AppView::init_backend()?;
     let app = ui::use_view::<view::AppView>();
     app.show()?;
-
     Ok(())
 }
 
-fn relaunch_with_software_renderer() -> Result<()> {
-    let exe = std::env::current_exe()?;
-    let args: Vec<String> = std::env::args().skip(1).collect();
-
-    Command::new(exe)
-        .args(args)
-        .env(SOFTWARE_FALLBACK_ENV, "1")
-        .spawn()?;
-    std::process::exit(0);
-}
 
 fn main() -> Result<()> {
-    if std::env::var_os(SOFTWARE_FALLBACK_ENV).is_some() {
-        return run_app("software");
-    }
-
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run_app("femtovg"))) {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run_app())) {
         Ok(Ok(())) => Ok(()),
-        Ok(Err(_)) | Err(_) => relaunch_with_software_renderer(),
+        Ok(Err(_)) | Err(_) => {
+            
+            if std::env::var("SLINT_BACKEND").ok().as_deref() == Some("winit-software") {
+                return  Ok(());
+            }
+
+            let exe = std::env::current_exe()?;
+            let args: Vec<String> = std::env::args().skip(1).collect();
+
+            Command::new(exe)
+                .args(args)
+                .env("SLINT_BACKEND", "winit-software")
+                .spawn()?;
+            std::process::exit(0);
+        },
     }
 }
