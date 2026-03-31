@@ -1,5 +1,6 @@
+use anyhow::{Context, Result};
 use slint::{ComponentHandle, Model, ModelRc};
-use anyhow::{Context, Ok, Result};
+
 use crate::{task, ui, view::ViewTrait};
 
 use super::{calc_menu_show_position, close_menus};
@@ -10,12 +11,18 @@ pub struct Menu3View {
 
 impl ViewTrait for Menu3View {
     fn new() -> Self {
-        let ui = ui::Menu3Window::new().unwrap();
+        let ui = match ui::Menu3Window::new().context("create Menu3Window failed") {
+            Ok(ui) => ui,
+            Err(err) => panic!("{}", err),
+        };
         Self { ui }.bind_event()
     }
 
     fn show(&self, extra: Option<&dyn std::any::Any>) -> Result<()> {
-        let (parent_pos_x, parent_pos_y, offset_y) = extra.and_then(|e| e.downcast_ref::<(f32, f32, f32)>()).context("extra error")?;
+        let (_parent_pos_x, parent_pos_y, offset_y, root_pos_x) =
+            extra
+                .and_then(|e| e.downcast_ref::<(f32, f32, f32, f32)>())
+                .context("menu3 show extra error")?;
         let app_view = ui::use_view::<crate::view::AppView>();
         task::refresh_disk_menu(&app_view.ui);
         let app_store = app_view.ui.global::<ui::Store>();
@@ -32,7 +39,7 @@ impl ViewTrait for Menu3View {
         let theme_mode = app_store.get_theme_mode();
         self.ui.global::<ui::Theme>().set_mode(theme_mode);
         store.set_theme_mode(theme_mode);
-        let Some((x, y)) = calc_menu_show_position(*parent_pos_x, *parent_pos_y, *offset_y) else {
+        let Some((x, y)) = calc_menu_show_position(3, *root_pos_x, *parent_pos_y, *offset_y) else {
             return Ok(());
         };
         self.ui.window().set_position(slint::PhysicalPosition::new(x, y));
@@ -81,7 +88,6 @@ impl ViewTrait for Menu3View {
         });
         self
     }
-
 
     fn as_any(&self) -> &dyn std::any::Any {
         self

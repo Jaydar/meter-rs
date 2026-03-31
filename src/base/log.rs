@@ -19,7 +19,7 @@ struct FileWriter {
 
 impl Write for FileWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let mut file = self.file.lock().unwrap();
+        let mut file = self.file.lock().map_err(|err| io::Error::other(anyhow::Error::msg(err.to_string()).context("lock log file failed")))?;
         if file.is_none() {
             *file = Some(
                 OpenOptions::new()
@@ -28,12 +28,14 @@ impl Write for FileWriter {
                     .open("meter-rs.log")?,
             );
         }
-        file.as_mut().unwrap().write_all(buf)?;
+        if let Some(file) = file.as_mut() {
+            file.write_all(buf)?;
+        }
         Ok(buf.len())
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        let mut file = self.file.lock().unwrap();
+        let mut file = self.file.lock().map_err(|err| io::Error::other(anyhow::Error::msg(err.to_string()).context("lock log file failed")))?;
         if let Some(file) = file.as_mut() {
             file.flush()?;
         }
@@ -78,19 +80,20 @@ pub fn init() {
                     .with_filter(EnvFilter::new(level)),
             );
 
-        tracing::subscriber::set_global_default(subscriber).unwrap();
+        if let Err(err) = tracing::subscriber::set_global_default(subscriber) {
+            eprintln!("set global tracing subscriber failed: {}", err);
+            panic!("set global tracing subscriber failed: {}", err);
+        }
 
         std::panic::set_hook(Box::new(|panic| {
-            if let Some(location) = panic.location() {
-                error!(
-                    message = %panic,
-                    panic.file = location.file(),
-                    panic.line = location.line(),
-                    panic.column = location.column(),
-                );
+            if let Some(message) = panic.payload().downcast_ref::<&str>() {
+                error!("{}", message);
                 return;
             }
-            error!(message = %panic);
+            if let Some(message) = panic.payload().downcast_ref::<String>() {
+                error!("{}", message);
+                return;
+            }
         }));
     });
 }

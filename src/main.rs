@@ -1,10 +1,19 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use anyhow::Result;
-use tracing::{error,info,warn,debug,trace};
-use std::{process::Command, sync::atomic::{AtomicUsize, Ordering}};
+use tracing::error;
+use std::{
+    process::Command,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 use windows::Win32::{
-    Foundation::{HWND, LPARAM, WPARAM}, System::Threading::{GetCurrentProcess, PROCESS_CREATION_FLAGS, PROCESS_POWER_THROTTLING_CURRENT_VERSION, PROCESS_POWER_THROTTLING_EXECUTION_SPEED, PROCESS_POWER_THROTTLING_STATE, ProcessPowerThrottling, SetPriorityClass, SetProcessInformation}, UI::WindowsAndMessaging::GetClassNameW
+    Foundation::{HWND, LPARAM, WPARAM},
+    System::Threading::{
+        GetCurrentProcess, PROCESS_CREATION_FLAGS, PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+        PROCESS_POWER_THROTTLING_EXECUTION_SPEED, PROCESS_POWER_THROTTLING_STATE,
+        ProcessPowerThrottling, SetPriorityClass, SetProcessInformation,
+    },
+    UI::WindowsAndMessaging::GetClassNameW,
 };
 
 
@@ -16,7 +25,6 @@ pub use base::{hook, log, task, tools, tray};
 use crate::view::ViewTrait;
 
 pub static MAIN_HWND: AtomicUsize = AtomicUsize::new(0);
-
 
 pub fn trim_memory() {
     #[cfg(windows)]
@@ -30,7 +38,6 @@ pub fn trim_memory() {
 }
 
 fn install_main_window_hook() {
-
     hook::install_win32_hook(|_n_code: i32, w_param: WPARAM, _l_param: LPARAM| {
         let hwnd = HWND(w_param.0 as _);
         let mut class_name = [0u16; 256];
@@ -43,28 +50,25 @@ fn install_main_window_hook() {
             MAIN_HWND.store(hwnd, Ordering::Release);
             tray::setup(hwnd);
 
-
             unsafe {
-                
                 let handle = GetCurrentProcess();
-                // 小绿叶
-                SetPriorityClass(handle, PROCESS_CREATION_FLAGS(0x40)).unwrap();
-                // 这一步才是“按出”绿叶的开关
+                if let Err(err) = SetPriorityClass(handle, PROCESS_CREATION_FLAGS(0x40)) {
+                    error!("Failed to set process priority: {}", err);
+                }
+
                 let mut throttling = PROCESS_POWER_THROTTLING_STATE {
                     Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
-                    ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED, // 0x1
-                    StateMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED,   // 0x1
+                    ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+                    StateMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
                 };
 
-                // 效能模式
                 let _ = SetProcessInformation(
                     handle,
-                    ProcessPowerThrottling, // 枚举值 4
+                    ProcessPowerThrottling,
                     &mut throttling as *mut _ as *mut _,
                     std::mem::size_of::<PROCESS_POWER_THROTTLING_STATE>() as u32,
                 );
             }
-
         }
     });
 }
@@ -77,22 +81,14 @@ fn run_app() -> Result<()> {
     Ok(())
 }
 
-
 fn main() -> Result<()> {
     log::init();
-
-    error!("Application started");
-    warn!("This is a warning message");
-    info!("This is an info message");
-    debug!("This is a debug message");
-    trace!("This is a trace message");
-
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run_app())) {
+    
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(run_app)) {
         Ok(Ok(())) => Ok(()),
         Ok(Err(_)) | Err(_) => {
-            
             if std::env::var("SLINT_BACKEND").ok().as_deref() == Some("winit-software") {
-                return  Ok(());
+                return Ok(());
             }
 
             let exe = std::env::current_exe()?;
@@ -103,6 +99,6 @@ fn main() -> Result<()> {
                 .env("SLINT_BACKEND", "winit-software")
                 .spawn()?;
             std::process::exit(0);
-        },
+        }
     }
 }

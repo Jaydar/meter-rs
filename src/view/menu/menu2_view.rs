@@ -1,15 +1,18 @@
+use anyhow::{Context, Result};
 use slint::{ComponentHandle, Model, ModelRc};
+use tracing::{error, info};
 
 use crate::{
     ui,
-    view::{ViewTrait},
+    view::ViewTrait,
 };
-use anyhow::{Context, Result};
-use super::{calc_menu_show_position, close_menus, Menu3View};
+
+use super::{Menu3View, calc_menu_show_position, close_menus};
 
 pub struct Menu2View {
     pub ui: ui::Menu2Window,
 }
+
 impl Menu2View {
     pub fn sync_store(&self) {
         let app_view = ui::use_view::<crate::view::AppView>();
@@ -37,26 +40,29 @@ impl Menu2View {
         self.ui.set_always_on_top_state(app_store.get_always_on_top());
         self.ui.set_snap_to_edge_state(app_store.get_snap_to_edge());
         self.ui.set_opacity_value(app_store.get_window_opacity());
-  
     }
-
 }
-
 
 impl ViewTrait for Menu2View {
     fn new() -> Self {
-        let ui = ui::Menu2Window::new().unwrap();
+        let ui = match ui::Menu2Window::new().context("create Menu2Window failed") {
+            Ok(ui) => ui,
+            Err(err) => panic!("{}", err),
+        };
         Self { ui }.bind_event()
     }
 
     fn show(&self, extra: Option<&dyn std::any::Any>) -> Result<()> {
+        info!("show menu2");
+        let (kind, _parent_pos_x, parent_pos_y, offset_y, root_pos_x) =
+            extra
+                .and_then(|e| e.downcast_ref::<(ui::SubmenuKind, f32, f32, f32, f32)>())
+                .context("menu2 show extra error")?;
 
-        let (kind, parent_pos_x, parent_pos_y, offset_y) = extra.and_then(|e| e.downcast_ref::<(ui::SubmenuKind, f32, f32, f32)>()).context("extra error")?;
-        
         self.sync_store();
         self.ui.set_kind(*kind);
         self.ui.set_disk_submenu_active(false);
-        let Some((x, y)) = calc_menu_show_position(*parent_pos_x, *parent_pos_y, *offset_y) else {
+        let Some((x, y)) = calc_menu_show_position(2, *root_pos_x, *parent_pos_y, *offset_y) else {
             return Ok(());
         };
         self.ui.window().set_position(slint::PhysicalPosition::new(x, y));
@@ -124,9 +130,13 @@ impl ViewTrait for Menu2View {
                 if let Some(menu) = weak.upgrade() {
                     let pos = menu.window().position();
                     let scaled_y = (offset_y * menu.window().scale_factor()).round() as f32;
+                    let menu1 = ui::use_view::<crate::view::Menu1View>();
+                    let root_x = menu1.ui.window().position().x as f32;
                     let menu3_view = ui::use_view::<Menu3View>();
-                    let extra = (pos.x as f32, pos.y as f32, scaled_y);
-                    let _ = menu3_view.show(Some(&extra));
+                    let extra = (pos.x as f32, pos.y as f32, scaled_y, root_x);
+                    if let Err(err) = menu3_view.show(Some(&extra)) {
+                        error!("{}", err);
+                    }
                 }
             }
         });

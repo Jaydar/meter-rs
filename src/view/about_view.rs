@@ -1,8 +1,8 @@
 use std::{os::windows::process::CommandExt, process::Command};
 
+use anyhow::{Context, Result};
 use slint::ComponentHandle;
 use std::sync::atomic::Ordering;
-use anyhow::Result;
 
 use crate::{tools, ui, view::ViewTrait, MAIN_HWND};
 
@@ -13,10 +13,12 @@ pub struct AboutView {
     pub ui: ui::AboutWindow,
 }
 
-
 impl ViewTrait for AboutView {
     fn new() -> Self {
-        let ui = ui::AboutWindow::new().unwrap();
+        let ui = match ui::AboutWindow::new().context("create AboutWindow failed") {
+            Ok(ui) => ui,
+            Err(err) => panic!("{}", err),
+        };
         ui.set_app_name(env!("CARGO_PKG_NAME").into());
         ui.set_github_url(env!("CARGO_PKG_REPOSITORY").into());
         ui.set_version_text(env!("CARGO_PKG_VERSION").into());
@@ -29,16 +31,13 @@ impl ViewTrait for AboutView {
         let theme_mode = app_store.get_theme_mode();
         self.ui.global::<ui::Store>().set_theme_mode(theme_mode);
         self.ui.global::<ui::Theme>().set_mode(theme_mode);
-        
         let _ = self.ui.show();
         self.set_position();
-
         Ok(())
     }
 
     fn hide(&self) {
         let _ = self.ui.hide();
-        // slint::Timer::single_shot(Duration::from_millis(200), trim_memory);
     }
 
     fn set_position(&self) {
@@ -61,6 +60,13 @@ impl ViewTrait for AboutView {
     fn bind_event(self) -> Self {
         self.ui.set_version_text(format!("v{}", env!("CARGO_PKG_VERSION")).into());
         self.ui.set_github_url(env!("CARGO_PKG_REPOSITORY").into());
+        self.ui.on_win_move(|delta_x, delta_y| {
+            let about = ui::use_view::<crate::view::AboutView>();
+            let window = about.ui.window();
+            let scale_factor = window.scale_factor();
+            let logical_pos = window.position().to_logical(scale_factor);
+            window.set_position(slint::LogicalPosition::new(logical_pos.x + delta_x, logical_pos.y + delta_y));
+        });
         self.ui.on_close_about(|| {
             let about = ui::use_view::<crate::view::AboutView>();
             about.hide();
@@ -73,7 +79,6 @@ impl ViewTrait for AboutView {
         });
         self
     }
-
 
     fn as_any(&self) -> &dyn std::any::Any {
         self

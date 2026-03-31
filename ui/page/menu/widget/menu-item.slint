@@ -7,6 +7,7 @@ export component MenuItem inherits Rectangle {
     in property <bool> checked;
     in property <bool> active: false;
     in property <bool> has_submenu: false;
+    in-out property <bool> hover_fired: false;
     callback clicked <=> ta.clicked;
     callback hovered;
 
@@ -17,8 +18,15 @@ export component MenuItem inherits Rectangle {
     ta := TouchArea {
         mouse-cursor: MouseCursor.pointer;
         pointer-event(event) => {
-            if (event.kind == PointerEventKind.move) {
+            if (event.kind == PointerEventKind.move && ta.has-hover && !root.hover_fired) {
+                root.hover_fired = true;
                 root.hovered();
+            }
+        }
+
+        changed has-hover => {
+            if (!self.has-hover) {
+                root.hover_fired = false;
             }
         }
     }
@@ -57,4 +65,3 @@ export component MenuItem inherits Rectangle {
         }
     }
 }
-

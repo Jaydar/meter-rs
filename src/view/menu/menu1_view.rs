@@ -1,20 +1,22 @@
-﻿use anyhow::Ok;
+use anyhow::{Context, Result};
 use i_slint_backend_winit::WinitWindowAccessor;
 use slint::ComponentHandle;
 use std::sync::atomic::Ordering;
-use anyhow::Result;
+use tracing::error;
 
 use crate::{
-    tools, ui::{self}, view::{AboutView, ViewTrait}, MAIN_HWND,
+    tools,
+    ui::{self},
+    view::{AboutView, ViewTrait},
+    MAIN_HWND,
 };
 
-use super::{close_menus, listen_menu_close, Menu2View};
-
-
+use super::{MENU_GAP, MENU_WIDTH, Menu2View, close_menus, listen_menu_close};
 
 pub struct Menu1View {
     pub ui: ui::Menu1Window,
 }
+
 impl Menu1View {
     fn sync_store(&self) {
         let app_view = ui::use_view::<crate::view::AppView>();
@@ -27,14 +29,15 @@ impl Menu1View {
 
 impl ViewTrait for Menu1View {
     fn new() -> Self {
-        let ui = ui::Menu1Window::new().unwrap();
+        let ui = match ui::Menu1Window::new().context("create Menu1Window failed") {
+            Ok(ui) => ui,
+            Err(err) => panic!("{}", err),
+        };
         Self { ui }.bind_event()
     }
 
     fn show(&self, _extra: Option<&dyn std::any::Any>) -> Result<()> {
-        
         self.sync_store();
-        
         let _ = self.ui.show();
         let next_height_bias = if self.ui.get_height_bias() == 0.0 { 0.1 } else { 0.0 };
         self.ui.set_height_bias(next_height_bias);
@@ -47,17 +50,16 @@ impl ViewTrait for Menu1View {
     }
 
     fn set_position(&self) {
-        slint::spawn_local({
+        let result = slint::spawn_local({
             let weak = self.ui.as_weak();
-            
-            async move {
 
+            async move {
                 let Some(menu) = weak.upgrade() else {
                     return;
                 };
 
                 let hwnd = MAIN_HWND.load(Ordering::Relaxed);
-                    if hwnd == 0 {
+                if hwnd == 0 {
                     return;
                 }
 
@@ -65,16 +67,21 @@ impl ViewTrait for Menu1View {
                     winit_win.focus_window();
                     listen_menu_close();
                 }
-           
+
                 if let Some(work_area) = tools::get_work_area(hwnd) {
                     let size = menu.window().size();
-               
-                    let position = tools::get_menu_position((size.width as i32, size.height as i32), work_area);
+                    let position = tools::get_menu_position(
+                        (size.width as i32, size.height as i32),
+                        work_area,
+                        MENU_WIDTH * 3 + MENU_GAP * 2
+                    );
                     menu.window().set_position(slint::PhysicalPosition::new(position.0, position.1));
                 }
-
             }
-        }).unwrap();
+        });
+        if let Err(err) = result {
+            error!("spawn menu1 position task failed: {}", err);
+        }
     }
 
     fn bind_event(self) -> Self {
@@ -115,8 +122,10 @@ impl ViewTrait for Menu1View {
                     let pos = menu.window().position();
                     let scaled_y = (offset_y * menu.window().scale_factor()).round() as f32;
                     let menu2 = ui::use_view::<Menu2View>();
-                    let extra = (ui::SubmenuKind::Theme, pos.x as f32, pos.y as f32, scaled_y);
-                    let _ = menu2.show(Some(&extra));
+                    let extra = (ui::SubmenuKind::Theme, pos.x as f32, pos.y as f32, scaled_y, pos.x as f32);
+                    if let Err(err) = menu2.show(Some(&extra)) {
+                        error!("{}", err);
+                    }
                 }
             }
         });
@@ -128,8 +137,10 @@ impl ViewTrait for Menu1View {
                     let pos = menu.window().position();
                     let scaled_y = (offset_y * menu.window().scale_factor()).round() as f32;
                     let menu2 = ui::use_view::<Menu2View>();
-                    let extra = (ui::SubmenuKind::Display, pos.x as f32, pos.y as f32, scaled_y);
-                    let _ = menu2.show(Some(&extra));
+                    let extra = (ui::SubmenuKind::Display, pos.x as f32, pos.y as f32, scaled_y, pos.x as f32);
+                    if let Err(err) = menu2.show(Some(&extra)) {
+                        error!("{}", err);
+                    }
                 }
             }
         });
@@ -141,27 +152,25 @@ impl ViewTrait for Menu1View {
                     let pos = menu.window().position();
                     let scaled_y = (offset_y * menu.window().scale_factor()).round() as f32;
                     let menu2 = ui::use_view::<Menu2View>();
-                    let extra = (ui::SubmenuKind::Window, pos.x as f32, pos.y as f32, scaled_y);
-                    let _ = menu2.show(Some(&extra));
+                    let extra = (ui::SubmenuKind::Window, pos.x as f32, pos.y as f32, scaled_y, pos.x as f32);
+                    if let Err(err) = menu2.show(Some(&extra)) {
+                        error!("{}", err);
+                    }
                 }
             }
         });
         self.ui.on_hide_submenu(|| {
-            let menu_view = ui::use_view::<crate::view::Menu1View>();
-            menu_view.ui.set_active_submenu(-1);
             close_menus(2);
         });
-
         self.ui.on_show_about(|| {
             let about = ui::use_view::<AboutView>();
-            let _ = about.show(None);
+            if let Err(err) = about.show(None) {
+                error!("{}", err);
+            }
         });
 
         self
-
     }
-
-
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
