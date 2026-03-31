@@ -1,5 +1,7 @@
+use anyhow::Context;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::OnceLock;
+use tracing::error;
 use windows::Win32::Foundation::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
@@ -29,14 +31,15 @@ where F: Fn(i32, WPARAM, LPARAM) + Send + Sync + 'static
     
     let _ = ON_EVENT.set(Box::new(callback));
     unsafe {
-        let h_hook = SetWindowsHookExW(
+        match SetWindowsHookExW(
             WH_CBT,
             Some(call_back_proc),
             None,
             windows::Win32::System::Threading::GetCurrentThreadId(),
-        ).expect("Failed to install hook");
-        
-        HOOK_HANDLE.store(h_hook.0 as isize, Ordering::SeqCst);
+        ).context("failed to install hook") {
+            Ok(h_hook) => HOOK_HANDLE.store(h_hook.0 as isize, Ordering::SeqCst),
+            Err(err) => error!("{}", err),
+        }
     }
 }
 

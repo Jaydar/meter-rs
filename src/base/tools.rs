@@ -64,18 +64,18 @@ pub fn get_current_mouse_position() -> POINT {
     point
 }
 
-pub fn get_menu_position(size: (i32, i32), work_area: (i32, i32, i32, i32)) -> (i32, i32) {
+pub fn get_menu_position(size: (i32, i32), work_area: (i32, i32, i32, i32), total_width: i32) -> (i32, i32) {
     let (wa_left, wa_top, wa_right, wa_bottom) = work_area;
     let mouse = get_current_mouse_position();
-    let center_x = wa_left + (wa_right - wa_left) / 2;
     let center_y = wa_top + (wa_bottom - wa_top) / 2;
 
-    let mut x = mouse.x;
+    let mut x = if mouse.x + total_width <= wa_right {
+        mouse.x
+    } else {
+        mouse.x - size.0
+    };
     let mut y = mouse.y;
 
-    if x > center_x {
-        x -= size.0;
-    }
     if y > center_y {
         y -= size.1;
     }

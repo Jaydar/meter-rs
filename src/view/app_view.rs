@@ -1,37 +1,42 @@
+use anyhow::{Context, Result};
 use i_slint_backend_winit::WinitWindowAccessor;
 use slint::ComponentHandle;
-use winit::platform::windows::WindowAttributesExtWindows;
 use std::sync::atomic::Ordering;
-use anyhow::Result;
+use tracing::error;
+use winit::platform::windows::WindowAttributesExtWindows;
 
 use crate::{
-    MAIN_HWND, base, task, tools, ui, view::{Menu1View, ViewTrait}
+    MAIN_HWND,
+    base,
+    task,
+    tools,
+    ui,
+    view::{Menu1View, ViewTrait},
 };
 
 pub struct AppView {
     pub ui: ui::AppWindow,
 }
 
-
-
 impl AppView {
-
-    pub fn init_backend() -> Result<()>{
-        println!("11111111111");
+    pub fn init_backend() -> Result<()> {
         i_slint_backend_selector::api::BackendSelector::new()
-        .with_winit_window_attributes_hook(|attr| attr.with_skip_taskbar(true))
-        .select()?;
-        
+            .with_winit_window_attributes_hook(|attr| attr.with_skip_taskbar(true))
+            .select()?;
         Ok(())
     }
 }
 
 impl ViewTrait for AppView {
     fn new() -> Self {
-        Self { ui: ui::AppWindow::new().unwrap() }.bind_event()
+        let ui = match ui::AppWindow::new().context("create AppWindow failed") {
+            Ok(ui) => ui,
+            Err(err) => panic!("{}", err),
+        };
+        Self { ui }.bind_event()
     }
 
-    fn show(&self) -> Result<()> {
+    fn show(&self, _extra: Option<&dyn std::any::Any>) -> Result<()> {
         self.ui.show()?;
         self.set_position();
         task::start_monitor(&self.ui);
@@ -40,20 +45,18 @@ impl ViewTrait for AppView {
     }
 
     fn hide(&self) {
-        let _ =self.ui.hide();
+        let _ = self.ui.hide();
     }
 
     fn set_position(&self) {
         let weak = self.ui.as_weak();
 
-        slint::spawn_local(async move {
-
+        let result = slint::spawn_local(async move {
             let Some(ui) = weak.upgrade() else {
                 return;
             };
 
             if ui.window().winit_window().await.is_ok() {
-
                 let hwnd = MAIN_HWND.load(Ordering::Relaxed);
                 if hwnd == 0 {
                     return;
@@ -69,9 +72,10 @@ impl ViewTrait for AppView {
                     ui.window().set_position(slint::PhysicalPosition::new(x, y));
                 }
             }
-
-        }).unwrap();
-
+        });
+        if let Err(err) = result {
+            error!("spawn app position task failed: {}", err);
+        }
     }
 
     fn bind_event(self) -> Self {
@@ -135,14 +139,12 @@ impl ViewTrait for AppView {
 
         self.ui.on_show_menu(move |_, _| {
             let menu_view = ui::use_view::<Menu1View>();
-            menu_view.show();
+            if let Err(err) = menu_view.show(None) {
+                error!("{}", err);
+            }
         });
 
         self
-    }
-
-    fn sync_store(&self) {
-
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

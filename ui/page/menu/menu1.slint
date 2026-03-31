@@ -8,12 +8,15 @@ export component Menu1Window inherits Window {
     no-frame: true;
     always-on-top: true;
     background: transparent;
+    height: content.preferred-height + root.height_bias;
 
     in-out property <length> height_bias: 0px;
     in-out property <bool> auto_start_state: false;
     in-out property <bool> mouse_passthrough_state: false;
     in-out property <bool> prevent_sleep_state: false;
     in-out property <int> active_submenu: -1;
+
+    
 
     callback close_menu();
     callback close_app();
@@ -191,5 +194,4 @@ export component Menu1Window inherits Window {
         }
     }
 
-    height: content.preferred-height + root.height_bias;
 }

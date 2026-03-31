@@ -1,5 +1,6 @@
+use anyhow::{Context, Result};
 use slint::{ComponentHandle, Model, ModelRc};
-use anyhow::{Ok, Result};
+
 use crate::{task, ui, view::ViewTrait};
 
 use super::{calc_menu_show_position, close_menus};
@@ -10,17 +11,44 @@ pub struct Menu3View {
 
 impl ViewTrait for Menu3View {
     fn new() -> Self {
-        let ui = ui::Menu3Window::new().unwrap();
+        let ui = match ui::Menu3Window::new().context("create Menu3Window failed") {
+            Ok(ui) => ui,
+            Err(err) => panic!("{}", err),
+        };
         Self { ui }.bind_event()
     }
 
-    fn show(&self) -> Result<()> {
+    fn show(&self, extra: Option<&dyn std::any::Any>) -> Result<()> {
+        let (_parent_pos_x, parent_pos_y, offset_y, root_pos_x) =
+            extra
+                .and_then(|e| e.downcast_ref::<(f32, f32, f32, f32)>())
+                .context("menu3 show extra error")?;
+        let app_view = ui::use_view::<crate::view::AppView>();
+        task::refresh_disk_menu(&app_view.ui);
+        let app_store = app_view.ui.global::<ui::Store>();
+        let model = app_store.get_disk_menu_entries();
+        let mut entries = Vec::new();
+        for i in 0..model.row_count() {
+            if let Some(entry) = model.row_data(i) {
+                entries.push(entry);
+            }
+        }
+        let store = self.ui.global::<ui::Store>();
+        store.set_disk_menu_entries(ModelRc::from(entries.as_slice()));
+        store.set_has_monitored_disks(app_store.get_has_monitored_disks());
+        let theme_mode = app_store.get_theme_mode();
+        self.ui.global::<ui::Theme>().set_mode(theme_mode);
+        store.set_theme_mode(theme_mode);
+        let Some((x, y)) = calc_menu_show_position(3, *root_pos_x, *parent_pos_y, *offset_y) else {
+            return Ok(());
+        };
+        self.ui.window().set_position(slint::PhysicalPosition::new(x, y));
         let _ = self.ui.show();
         Ok(())
     }
 
     fn hide(&self) {
-        Menu3View::hide(self);
+        let _ = self.ui.hide();
     }
 
     fn set_position(&self) {}
@@ -61,40 +89,7 @@ impl ViewTrait for Menu3View {
         self
     }
 
-    fn sync_store(&self) {}
-
     fn as_any(&self) -> &dyn std::any::Any {
         self
-    }
-}
-
-impl Menu3View {
-    pub fn show(&self, parent_pos_x: f32, parent_pos_y: f32, offset_y: f32) {
-        let app_view = ui::use_view::<crate::view::AppView>();
-        task::refresh_disk_menu(&app_view.ui);
-        let app_store = app_view.ui.global::<ui::Store>();
-        let model = app_store.get_disk_menu_entries();
-        let mut entries = Vec::new();
-        for i in 0..model.row_count() {
-            if let Some(entry) = model.row_data(i) {
-                entries.push(entry);
-            }
-        }
-
-        let store = self.ui.global::<ui::Store>();
-        store.set_disk_menu_entries(ModelRc::from(entries.as_slice()));
-        store.set_has_monitored_disks(app_store.get_has_monitored_disks());
-        let theme_mode = app_store.get_theme_mode();
-        self.ui.global::<ui::Theme>().set_mode(theme_mode);
-        store.set_theme_mode(theme_mode);
-        let Some((x, y)) = calc_menu_show_position(parent_pos_x, parent_pos_y, offset_y) else {
-            return;
-        };
-        self.ui.window().set_position(slint::PhysicalPosition::new(x, y));
-        let _ = self.ui.show();
-    }
-
-    pub fn hide(&self) {
-        let _ = self.ui.hide();
     }
 }
