@@ -23,7 +23,7 @@ impl ViewTrait for AboutView {
         Self { ui }.bind_event()
     }
 
-    fn show(&self) -> Result<()> {
+    fn show(&self, _extra: Option<&dyn std::any::Any>) -> Result<()> {
         let app_view = ui::use_view::<crate::view::AppView>();
         let app_store = app_view.ui.global::<ui::Store>();
         let theme_mode = app_store.get_theme_mode();
@@ -74,12 +74,8 @@ impl ViewTrait for AboutView {
         self
     }
 
-    fn sync_store(&self) {
-        
-    }
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 }
-

@@ -14,11 +14,14 @@ anyhow = "1.0.102"
 slint = { version = "1.15.1", features = ["raw-window-handle-06", "unstable-winit-030","backend-winit","renderer-femtovg","renderer-software"] }
 i-slint-backend-winit = { version = "1.15.1", features = ["renderer-femtovg","renderer-software"] }
 i-slint-backend-selector = "1.15.1"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "time"] }
+tracing-appender = "0.2.3"
+time = { version = "0.3.44", features = ["formatting", "macros"] }
 
 raw-window-handle = "0.6.2"
 winit = "0.30.13"
-
-sysinfo = "0.37.2"
+sysinfo = "0.38.4"
 windows = { version = "0.62.2", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Shell",

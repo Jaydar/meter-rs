@@ -7,10 +7,6 @@ use winit::event::WindowEvent;
 
 use crate::{MAIN_HWND, tools, trim_memory, ui, view::ViewTrait};
 
-pub const MENU_WIDTH: i32 = 180;
-pub static ACTION_COUNT: AtomicUsize = AtomicUsize::new(0);
-
-
 mod menu1_view;
 pub use menu1_view::Menu1View;
 
@@ -20,6 +16,8 @@ pub use menu2_view::Menu2View;
 mod menu3_view;
 pub use menu3_view::Menu3View;
 
+
+pub const MENU_WIDTH: i32 = 180;
 static ACTIVE_MENU_COUNT: AtomicUsize = AtomicUsize::new(1);
 
 

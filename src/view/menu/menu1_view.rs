@@ -1,30 +1,28 @@
 ﻿use anyhow::Ok;
 use i_slint_backend_winit::WinitWindowAccessor;
-use slint::{ComponentHandle, RenderingState, Timer, TimerMode};
-use std::{
-    sync::atomic::{AtomicBool, Ordering},
-    sync::{Mutex, OnceLock},
-    time::{Duration, Instant},
-};
+use slint::ComponentHandle;
+use std::sync::atomic::Ordering;
 use anyhow::Result;
 
 use crate::{
     tools, ui::{self}, view::{AboutView, ViewTrait}, MAIN_HWND,
 };
 
-use super::{close_menus, listen_menu_close, Menu2View, Menu3View};
-
-
-const MENU_HEIGHT_BIAS: f32 = 0.01;
-const MENU_GEOMETRY_RETRY_DELAY: Duration = Duration::from_millis(16);
-const MENU_GEOMETRY_RETRY_ATTEMPTS: u8 = 30;
-
-
+use super::{close_menus, listen_menu_close, Menu2View};
 
 
 
 pub struct Menu1View {
     pub ui: ui::Menu1Window,
+}
+impl Menu1View {
+    fn sync_store(&self) {
+        let app_view = ui::use_view::<crate::view::AppView>();
+        let app_store = app_view.ui.global::<ui::Store>();
+        self.ui.set_auto_start_state(app_store.get_auto_start());
+        self.ui.set_mouse_passthrough_state(app_store.get_mouse_passthrough());
+        self.ui.set_prevent_sleep_state(app_store.get_prevent_sleep());
+    }
 }
 
 impl ViewTrait for Menu1View {
@@ -33,23 +31,13 @@ impl ViewTrait for Menu1View {
         Self { ui }.bind_event()
     }
 
-    fn show(&self) -> Result<()> {
-
-        // let app_view = ui::use_view::<crate::view::AppView>();
-        // let app_store = app_view.ui.global::<ui::Store>();
-        // let theme_mode = app_store.get_theme_mode();
-
-        // self.ui.global::<ui::Store>().set_theme_mode(theme_mode);
-        // self.ui.global::<ui::Theme>().set_mode(theme_mode);
-        // self.ui.set_auto_start_state(app_store.get_auto_start());
-        // self.ui.set_mouse_passthrough_state(app_store.get_mouse_passthrough());
-        // self.ui.set_prevent_sleep_state(app_store.get_prevent_sleep());
-        // self.ui.set_active_submenu(-1);
-
-        // let next_height_bias = if self.ui.get_height_bias() == 0.0 { MENU_HEIGHT_BIAS } else { 0.0 };
-        // self.ui.set_height_bias(next_height_bias);
+    fn show(&self, _extra: Option<&dyn std::any::Any>) -> Result<()> {
+        
+        self.sync_store();
         
         let _ = self.ui.show();
+        let next_height_bias = if self.ui.get_height_bias() == 0.0 { 0.1 } else { 0.0 };
+        self.ui.set_height_bias(next_height_bias);
         self.set_position();
         Ok(())
     }
@@ -127,7 +115,8 @@ impl ViewTrait for Menu1View {
                     let pos = menu.window().position();
                     let scaled_y = (offset_y * menu.window().scale_factor()).round() as f32;
                     let menu2 = ui::use_view::<Menu2View>();
-                    menu2.show(ui::SubmenuKind::Theme, pos.x as f32, pos.y as f32, scaled_y);
+                    let extra = (ui::SubmenuKind::Theme, pos.x as f32, pos.y as f32, scaled_y);
+                    let _ = menu2.show(Some(&extra));
                 }
             }
         });
@@ -139,7 +128,8 @@ impl ViewTrait for Menu1View {
                     let pos = menu.window().position();
                     let scaled_y = (offset_y * menu.window().scale_factor()).round() as f32;
                     let menu2 = ui::use_view::<Menu2View>();
-                    menu2.show(ui::SubmenuKind::Display, pos.x as f32, pos.y as f32, scaled_y);
+                    let extra = (ui::SubmenuKind::Display, pos.x as f32, pos.y as f32, scaled_y);
+                    let _ = menu2.show(Some(&extra));
                 }
             }
         });
@@ -151,7 +141,8 @@ impl ViewTrait for Menu1View {
                     let pos = menu.window().position();
                     let scaled_y = (offset_y * menu.window().scale_factor()).round() as f32;
                     let menu2 = ui::use_view::<Menu2View>();
-                    menu2.show(ui::SubmenuKind::Window, pos.x as f32, pos.y as f32, scaled_y);
+                    let extra = (ui::SubmenuKind::Window, pos.x as f32, pos.y as f32, scaled_y);
+                    let _ = menu2.show(Some(&extra));
                 }
             }
         });
@@ -163,14 +154,14 @@ impl ViewTrait for Menu1View {
 
         self.ui.on_show_about(|| {
             let about = ui::use_view::<AboutView>();
-            about.show();
+            let _ = about.show(None);
         });
 
         self
 
     }
 
-    fn sync_store(&self) {}
+
 
     fn as_any(&self) -> &dyn std::any::Any {
         self

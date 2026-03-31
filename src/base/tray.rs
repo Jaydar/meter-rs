@@ -1,7 +1,5 @@
 use std::thread;
 
-use i_slint_backend_winit::WinitWindowAccessor;
-use slint::ComponentHandle;
 use windows::{
     core::w,
     Win32::{
@@ -71,7 +69,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
             if event == WM_RBUTTONUP || event == WM_CONTEXTMENU {
                 let _ = slint::invoke_from_event_loop(|| {
                     let menu_view = crate::ui::use_view::<crate::view::Menu1View>();
-                    menu_view.show();
+                    let _ = menu_view.show(None);
                 });
             }
             LRESULT(0)

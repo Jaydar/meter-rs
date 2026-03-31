@@ -25,14 +25,9 @@ impl ViewManager {
 
     pub fn get_static<T: 'static + ViewTrait>(&mut self) -> &'static T {
         let type_id = TypeId::of::<T>();
-        let page = *self
-            .pages
-            .entry(type_id)
-            .or_insert_with(|| Box::leak(Box::new(T::new())) as &'static dyn ViewTrait);
+        let page = *self.pages.entry(type_id).or_insert_with(|| Box::leak(Box::new(T::new())) as &'static dyn ViewTrait);
 
-        page.as_any()
-            .downcast_ref::<T>()
-            .expect("view manager stored a different type for this TypeId")
+        page.as_any().downcast_ref::<T>().expect("view manager stored a different type for this TypeId")
     }
 
     pub fn sync_store(&mut self) {}

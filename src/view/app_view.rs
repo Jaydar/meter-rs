@@ -31,7 +31,7 @@ impl ViewTrait for AppView {
         Self { ui: ui::AppWindow::new().unwrap() }.bind_event()
     }
 
-    fn show(&self) -> Result<()> {
+    fn show(&self, _extra: Option<&dyn std::any::Any>) -> Result<()> {
         self.ui.show()?;
         self.set_position();
         task::start_monitor(&self.ui);
@@ -135,15 +135,12 @@ impl ViewTrait for AppView {
 
         self.ui.on_show_menu(move |_, _| {
             let menu_view = ui::use_view::<Menu1View>();
-            menu_view.show();
+            let _ = menu_view.show(None);
         });
 
         self
     }
 
-    fn sync_store(&self) {
-
-    }
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
