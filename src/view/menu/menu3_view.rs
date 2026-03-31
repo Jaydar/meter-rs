@@ -19,10 +19,7 @@ impl ViewTrait for Menu3View {
     }
 
     fn show(&self, extra: Option<&dyn std::any::Any>) -> Result<()> {
-        let (_parent_pos_x, parent_pos_y, offset_y, root_pos_x) =
-            extra
-                .and_then(|e| e.downcast_ref::<(f32, f32, f32, f32)>())
-                .context("menu3 show extra error")?;
+        let (_parent_pos_x, parent_pos_y, offset_y, root_pos_x) =extra.and_then(|e| e.downcast_ref::<(f32, f32, f32, f32)>()).context("menu3 show extra error")?;
         let app_view = ui::use_view::<crate::view::AppView>();
         task::refresh_disk_menu(&app_view.ui);
         let app_store = app_view.ui.global::<ui::Store>();
