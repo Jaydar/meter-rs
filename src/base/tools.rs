@@ -27,8 +27,9 @@ use windows::Win32::{
     },
 };
 
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
+
+/// 从 Slint 窗口句柄中提取原生 HWND。
 pub fn get_hwnd_by_window_handle<C: ComponentHandle>(view: &C) -> Option<HWND> {
     let mut hwnd_res = None;
     view.window().with_winit_window(|winit_win| {
@@ -41,12 +42,14 @@ pub fn get_hwnd_by_window_handle<C: ComponentHandle>(view: &C) -> Option<HWND> {
     hwnd_res
 }
 
+/// 获取窗口所在显示器的工作区域。
 pub fn get_work_area(hwnd: usize) -> Option<(i32, i32, i32, i32)> {
     let hwnd = HWND(hwnd as _);
     let h_monitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
     get_work_area_from_monitor(h_monitor)
 }
 
+/// 获取窗口矩形位置和尺寸。
 pub fn get_size(hwnd: usize) -> Option<(i32, i32, i32, i32)> {
     let hwnd = HWND(hwnd as _);
     let mut rect = RECT::default();
@@ -56,6 +59,7 @@ pub fn get_size(hwnd: usize) -> Option<(i32, i32, i32, i32)> {
     None
 }
 
+/// 获取当前鼠标坐标。
 pub fn get_current_mouse_position() -> POINT {
     let mut point = POINT { x: 0, y: 0 };
     unsafe {
@@ -64,6 +68,7 @@ pub fn get_current_mouse_position() -> POINT {
     point
 }
 
+/// 计算主菜单的弹出位置。
 pub fn get_menu_position(size: (i32, i32), work_area: (i32, i32, i32, i32), total_width: i32) -> (i32, i32) {
     let (wa_left, wa_top, wa_right, wa_bottom) = work_area;
     let mouse = get_current_mouse_position();
@@ -86,6 +91,7 @@ pub fn get_menu_position(size: (i32, i32), work_area: (i32, i32, i32, i32), tota
     (x, y)
 }
 
+/// 计算子菜单的弹出位置。
 pub fn get_submenu_position(
     main_pos: (i32, i32),
     main_size: (i32, i32),
@@ -105,10 +111,7 @@ pub fn get_submenu_position(
     (x, y)
 }
 
-pub fn is_window_foreground(hwnd: HWND) -> bool {
-    unsafe { GetForegroundWindow() == hwnd }
-}
-
+/// 设置窗口是否允许鼠标穿透。
 pub fn set_mouse_passthrough(hwnd: usize, enable: bool) {
     let hwnd = HWND(hwnd as _);
     unsafe {
@@ -132,6 +135,7 @@ pub fn set_mouse_passthrough(hwnd: usize, enable: bool) {
     }
 }
 
+/// 设置是否阻止系统休眠。
 pub fn set_prevent_sleep(enable: bool) {
     unsafe {
         let flags = if enable {
@@ -143,6 +147,7 @@ pub fn set_prevent_sleep(enable: bool) {
     }
 }
 
+/// 通过系统命令关闭显示器。
 pub fn turn_off_display() {
     unsafe {
         let _ = SendMessageW(
@@ -154,16 +159,18 @@ pub fn turn_off_display() {
     }
 }
 
+/// 重启 Windows 资源管理器。
 pub fn restart_explorer() {
     let _ = Command::new("taskkill")
-        .creation_flags(CREATE_NO_WINDOW)
+        .creation_flags(0x0800_0000)
         .args(["/F", "/IM", "explorer.exe"])
         .status();
     let _ = Command::new("explorer.exe")
-        .creation_flags(CREATE_NO_WINDOW)
+        .creation_flags(0x0800_0000)
         .spawn();
 }
 
+/// 在后台线程中尝试清理进程工作集。
 pub fn clean_memory() {
     let _ = thread::Builder::new()
         .name("meter-rs-memory-clean".to_string())
@@ -202,6 +209,7 @@ pub fn clean_memory() {
         });
 }
 
+/// 检查程序是否已注册开机自启。
 pub fn is_auto_start() -> bool {
     let app_name = "Meter RS";
     let status = reg_command()
@@ -218,6 +226,7 @@ pub fn is_auto_start() -> bool {
     }
 }
 
+/// 设置程序的开机自启状态。
 pub fn set_auto_start(enable: bool) {
     let app_name = "Meter RS";
     if enable {
@@ -250,6 +259,7 @@ pub fn set_auto_start(enable: bool) {
     }
 }
 
+/// 从显示器句柄中读取工作区域。
 fn get_work_area_from_monitor(
     h_monitor: windows::Win32::Graphics::Gdi::HMONITOR,
 ) -> Option<(i32, i32, i32, i32)> {
@@ -266,8 +276,9 @@ fn get_work_area_from_monitor(
     None
 }
 
+/// 创建隐藏窗口执行的 reg 命令。
 fn reg_command() -> Command {
     let mut command = Command::new("reg");
-    command.creation_flags(CREATE_NO_WINDOW);
+    command.creation_flags(0x0800_0000);
     command
 }
