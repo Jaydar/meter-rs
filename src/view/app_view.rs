@@ -39,6 +39,7 @@ impl ViewTrait for AppView {
     fn show(&self, _extra: Option<&dyn std::any::Any>) -> Result<()> {
         self.ui.show()?;
         self.set_position();
+        self.ui.global::<ui::Store>().set_auto_start(tools::is_auto_start());
         task::start_monitor(&self.ui);
         slint::run_event_loop()?;
         Ok(())

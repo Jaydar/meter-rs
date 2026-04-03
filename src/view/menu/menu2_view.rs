@@ -4,7 +4,7 @@ use tracing::{error, info};
 
 use crate::{
     ui,
-    view::ViewTrait,
+    view::{ViewTrait, app_view},
 };
 
 use super::{Menu3View, calc_menu_show_position, close_menus};
@@ -87,6 +87,19 @@ impl ViewTrait for Menu2View {
             let app_view = ui::use_view::<crate::view::AppView>();
             app_view.ui.global::<ui::Store>().set_theme_mode(theme_mode);
             app_view.ui.global::<ui::Theme>().set_mode(theme_mode);
+
+            let menu1_view = ui::use_view::<crate::view::Menu1View>();
+            menu1_view.ui.global::<ui::Store>().set_theme_mode(theme_mode);
+            menu1_view.ui.global::<ui::Theme>().set_mode(theme_mode);
+
+            let menu2_view = ui::use_view::<Menu2View>();
+            menu2_view.ui.global::<ui::Store>().set_theme_mode(theme_mode);
+            menu2_view.ui.global::<ui::Theme>().set_mode(theme_mode);
+
+            let menu3_view = ui::use_view::<Menu3View>();
+            menu3_view.ui.global::<ui::Store>().set_theme_mode(theme_mode);
+            menu3_view.ui.global::<ui::Theme>().set_mode(theme_mode);
+
         });
         self.ui.on_set_show_hostname(|value| {
             let app_view = ui::use_view::<crate::view::AppView>();

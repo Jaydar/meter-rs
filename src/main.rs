@@ -30,9 +30,10 @@ pub fn trim_memory() {
     #[cfg(windows)]
     unsafe {
         use windows::Win32::System::ProcessStatus::EmptyWorkingSet;
-        use windows::Win32::System::Threading::GetCurrentProcess;
+        use windows::Win32::System::Threading::{GetCurrentProcess, SetProcessWorkingSetSize};
 
         let handle = GetCurrentProcess();
+        let _ = SetProcessWorkingSetSize(handle, usize::MAX, usize::MAX);
         let _ = EmptyWorkingSet(handle);
     }
 }
@@ -78,6 +79,7 @@ fn run_app() -> Result<()> {
     view::AppView::init_backend()?;
     let app = ui::use_view::<view::AppView>();
     app.show(None)?;
+
     Ok(())
 }
 
