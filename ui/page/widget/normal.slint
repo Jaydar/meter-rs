@@ -3,8 +3,7 @@ import { ConfigStore } from "../../config_store.slint";
 import { RuntimeStore } from "../../runtime_store.slint";
 
 export component NormalWidget inherits Rectangle {
-    background: Theme.window-bg;
-    opacity: ConfigStore.window_opacity;
+    background: Theme.window-bg.with-alpha(ConfigStore.window_opacity);
     border-radius: 10px;
     preferred-width: 200px;
     preferred-height: normal_mode.preferred-height;

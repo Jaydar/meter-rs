@@ -1,10 +1,10 @@
+import "../../assets/remixicon.ttf";
 import { Theme } from "../../theme.slint";
 import { ConfigStore } from "../../config_store.slint";
 import { RuntimeStore } from "../../runtime_store.slint";
 
 export component SimpleWidget inherits Rectangle {
-    background: Theme.window-bg;
-    opacity: ConfigStore.window_opacity;
+    background: Theme.window-bg.with-alpha(ConfigStore.window_opacity);
     border-radius: 10px;
     preferred-width: simple_layout.preferred-width;
     preferred-height: RuntimeStore.taskbar_height;
@@ -51,7 +51,7 @@ export component SimpleWidget inherits Rectangle {
                 height: root.height;
                 padding-left: 8px;
                 padding-right: 8px;
-                spacing: 5px;
+                spacing: 8px;
                 alignment: center;
                 cross-axis-alignment: center;
 
@@ -65,19 +65,19 @@ export component SimpleWidget inherits Rectangle {
 
                 if (ConfigStore.show_cpu): HorizontalLayout {
                     spacing: 2px;
-                    Text { text: "CPU:"; color: Theme.text; font-size: 9pt; vertical-alignment: center; }
+                    Text { text: "\u{ebf0}"; color: Theme.text; font-size: 14pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
                     Text { width: 38px; text: RuntimeStore.cpu_usage.to-fixed(1) + "%"; color: root.get_cpu_color(RuntimeStore.cpu_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
                 }
 
                 if (ConfigStore.show_memory): HorizontalLayout {
                     spacing: 2px;
-                    Text { text: "内存:"; color: Theme.text; font-size: 9pt; vertical-alignment: center; }
+                    Text { text: "\u{f452}"; color: Theme.text; font-size: 14pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
                     Text { width: 38px; text: RuntimeStore.memory_usage.to-fixed(1) + "%"; color: root.get_mem_color(RuntimeStore.memory_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
                 }
 
                 if (ConfigStore.show_disk_total): HorizontalLayout {
                     spacing: 2px;
-                    Text { text: "磁盘:"; color: Theme.text; font-size: 9pt; vertical-alignment: center; }
+                    Text { text: "\u{edf8}"; color: Theme.text; font-size: 14pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
                     Text { width: 38px; text: RuntimeStore.disk_usage.to-fixed(1) + "%"; color: root.get_disk_color(RuntimeStore.disk_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
                 }
 
@@ -85,13 +85,13 @@ export component SimpleWidget inherits Rectangle {
                     spacing: 0px;
                     HorizontalLayout {
                         spacing: 2px;
-                        Text { text: "读:"; color: Theme.text; font-size: 8pt; vertical-alignment: center; }
-                        Text { width: 60px; text: RuntimeStore.disk_total_read; color: Theme.text-low; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
+                        Text { width: 14px; text: "\u{ec5a}"; color: Theme.text; font-size: 9pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
+                        Text { width: 60px; text: RuntimeStore.disk_total_read; color: Theme.text-low; font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
                     }
                     HorizontalLayout {
                         spacing: 2px;
-                        Text { text: "写:"; color: Theme.text; font-size: 8pt; vertical-alignment: center; }
-                        Text { width: 60px; text: RuntimeStore.disk_total_write; color: Theme.text-mid; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
+                        Text { width: 14px; text: "\u{f250}"; color: Theme.text; font-size: 9pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
+                        Text { width: 60px; text: RuntimeStore.disk_total_write; color: Theme.text-mid; font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
                     }
                 }
 
@@ -99,13 +99,13 @@ export component SimpleWidget inherits Rectangle {
                     spacing: 0px;
                     HorizontalLayout {
                         spacing: 2px;
-                        Text { text: "下:"; color: Theme.text; font-size: 8pt; vertical-alignment: center; }
-                        Text { width: 60px; text: RuntimeStore.network_rx; color: Theme.text-low; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
+                        Text { width: 14px; text: "\u{ec5a}"; color: Theme.text; font-size: 9pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
+                        Text { width: 60px; text: RuntimeStore.network_rx; color: Theme.text-low; font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
                     }
                     HorizontalLayout {
                         spacing: 2px;
-                        Text { text: "上:"; color: Theme.text; font-size: 8pt; vertical-alignment: center; }
-                        Text { width: 60px; text: RuntimeStore.network_tx; color: Theme.text-low; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
+                        Text { width: 14px; text: "\u{f250}"; color: Theme.text; font-size: 9pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
+                        Text { width: 60px; text: RuntimeStore.network_tx; color: Theme.text-low; font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
                     }
                 }
             }

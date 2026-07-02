@@ -16,7 +16,9 @@ struct Settings {
     snap_to_edge: bool,
     snap_mode: String,
     window_opacity: f32,
-    simple_mode: bool,
+    display_mode: String,
+    #[serde(default)]
+    simple_mode: Option<bool>,
     show_hostname: bool,
     show_cpu: bool,
     show_memory: bool,
@@ -36,7 +38,8 @@ impl Default for Settings {
             snap_to_edge: true,
             snap_mode: "work_area".to_string(),
             window_opacity: 0.9,
-            simple_mode: false,
+            display_mode: "normal".to_string(),
+            simple_mode: None,
             show_hostname: false,
             show_cpu: true,
             show_memory: true,
@@ -65,7 +68,7 @@ struct PartialSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     window_opacity: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    simple_mode: Option<bool>,
+    display_mode: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     show_hostname: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -103,7 +106,7 @@ fn settings() -> Settings {
         .unwrap()
         .set_default("window_opacity", defaults.window_opacity as f64)
         .unwrap()
-        .set_default("simple_mode", defaults.simple_mode)
+        .set_default("display_mode", defaults.display_mode)
         .unwrap()
         .set_default("show_hostname", defaults.show_hostname)
         .unwrap()
@@ -143,7 +146,8 @@ pub fn load(view: &ui::AppWindow) {
     config_store.set_snap_to_edge(settings.snap_to_edge);
     config_store.set_snap_mode(ui::SnapMode::from_str(&settings.snap_mode));
     config_store.set_window_opacity(settings.window_opacity);
-    config_store.set_simple_mode(settings.simple_mode);
+    let display_mode = settings.simple_mode.map(|value| if value { ui::DisplayMode::Simple } else { ui::DisplayMode::Normal }).unwrap_or_else(|| ui::DisplayMode::from_str(&settings.display_mode));
+    config_store.set_display_mode(display_mode);
     config_store.set_show_hostname(settings.show_hostname);
     config_store.set_show_cpu(settings.show_cpu);
     config_store.set_show_memory(settings.show_memory);
@@ -178,7 +182,7 @@ pub fn save(view: &ui::AppWindow) {
         snap_to_edge: (config_store.get_snap_to_edge() != defaults.snap_to_edge).then_some(config_store.get_snap_to_edge()),
         snap_mode: (config_store.get_snap_mode() != ui::SnapMode::WorkArea).then(|| config_store.get_snap_mode().as_str().to_string()),
         window_opacity: ((config_store.get_window_opacity() - defaults.window_opacity).abs() > f32::EPSILON).then_some(config_store.get_window_opacity()),
-        simple_mode: (config_store.get_simple_mode() != defaults.simple_mode).then_some(config_store.get_simple_mode()),
+        display_mode: (config_store.get_display_mode() != ui::DisplayMode::Normal).then(|| config_store.get_display_mode().as_str().to_string()),
         show_hostname: (config_store.get_show_hostname() != defaults.show_hostname).then_some(config_store.get_show_hostname()),
         show_cpu: (config_store.get_show_cpu() != defaults.show_cpu).then_some(config_store.get_show_cpu()),
         show_memory: (config_store.get_show_memory() != defaults.show_memory).then_some(config_store.get_show_memory()),

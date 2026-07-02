@@ -1,6 +1,7 @@
 import { ThemeMode } from "./theme.slint";
 
 export enum SnapMode { work_area, full_screen }
+export enum DisplayMode { normal, simple, taskbar }
 
 export global ConfigStore {
     in-out property <ThemeMode> theme_mode: ThemeMode.system;
@@ -11,7 +12,7 @@ export global ConfigStore {
     in-out property <bool> snap_to_edge: true;
     in-out property <SnapMode> snap_mode: SnapMode.work_area;
     in-out property <float> window_opacity: 0.9;
-    in-out property <bool> simple_mode: false;
+    in-out property <DisplayMode> display_mode: DisplayMode.normal;
     in-out property <bool> show_hostname: false;
     in-out property <bool> show_cpu: true;
     in-out property <bool> show_memory: true;

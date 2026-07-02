@@ -121,7 +121,9 @@ fn handle_menu_event(id: &str) {
         "theme:system" => set_theme(ui::ThemeMode::System),
         "theme:dark" => set_theme(ui::ThemeMode::Dark),
         "theme:light" => set_theme(ui::ThemeMode::Light),
-        "simple_mode" => set_simple_mode(!config_store.get_simple_mode()),
+        "display_mode:normal" => set_display_mode(ui::DisplayMode::Normal),
+        "display_mode:simple" => set_display_mode(ui::DisplayMode::Simple),
+        "display_mode:taskbar" => set_display_mode(ui::DisplayMode::Taskbar),
         "show_hostname" => set_show_hostname(!config_store.get_show_hostname()),
         "show_cpu" => set_show_cpu(!config_store.get_show_cpu()),
         "show_memory" => set_show_memory(!config_store.get_show_memory()),
@@ -162,14 +164,23 @@ fn build_menu() -> Menu {
     let runtime_store = app_view.ui.global::<ui::RuntimeStore>();
     let menu = Menu::new();
     let theme_menu = Submenu::with_items("主题", true, &[&check_item("theme:system", "系统", config_store.get_theme_mode() == ui::ThemeMode::System), &check_item("theme:dark", "深色", config_store.get_theme_mode() == ui::ThemeMode::Dark), &check_item("theme:light", "浅色", config_store.get_theme_mode() == ui::ThemeMode::Light)]).unwrap();
+    let display_mode_menu = Submenu::with_items(
+        "显示模式",
+        true,
+        &[
+            &check_item("display_mode:normal", "正常模式", config_store.get_display_mode() == ui::DisplayMode::Normal),
+            &check_item("display_mode:simple", "简洁模式", config_store.get_display_mode() == ui::DisplayMode::Simple),
+            &check_item("display_mode:taskbar", "任务栏模式", config_store.get_display_mode() == ui::DisplayMode::Taskbar),
+        ],
+    )
+    .unwrap();
     let display_items = vec![
-        check_item("simple_mode", "简洁模式", config_store.get_simple_mode()),
         check_item("show_hostname", "主机名", config_store.get_show_hostname()),
         check_item("show_cpu", "CPU", config_store.get_show_cpu()),
         check_item("show_memory", "内存", config_store.get_show_memory()),
         check_item("show_disk_total", "磁盘", config_store.get_show_disk_total()),
     ];
-    let display_menu = Submenu::with_items("显示设置", true, &[&display_items[0], &display_items[1], &display_items[2], &display_items[3], &display_items[4], &disk_menu(&runtime_store), &check_item("show_disk_io", "磁盘IO", config_store.get_show_disk_io()), &check_item("show_network", "流量", config_store.get_show_network())]).unwrap();
+    let display_menu = Submenu::with_items("显示设置", true, &[&display_mode_menu, &display_items[0], &display_items[1], &display_items[2], &display_items[3], &disk_menu(&runtime_store), &check_item("show_disk_io", "磁盘IO", config_store.get_show_disk_io()), &check_item("show_network", "流量", config_store.get_show_network())]).unwrap();
     let window_menu = Submenu::with_items(
         "窗口",
         true,
@@ -296,9 +307,9 @@ pub(crate) fn set_show_network(value: bool) {
     sync_tray();
 }
 
-pub(crate) fn set_simple_mode(value: bool) {
+pub(crate) fn set_display_mode(value: ui::DisplayMode) {
     let app_view = ui::use_view::<AppView>();
-    app_view.ui.global::<ui::ConfigStore>().set_simple_mode(value);
+    app_view.ui.global::<ui::ConfigStore>().set_display_mode(value);
     app_view.set_position();
     crate::base::config::save(&app_view.ui);
     sync_tray();

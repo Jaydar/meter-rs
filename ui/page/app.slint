@@ -2,10 +2,10 @@ import { AboutWindow } from "about.slint";
 import { NormalWidget } from "widget/normal.slint";
 import { SimpleWidget } from "widget/simple.slint";
 import { Theme } from "../theme.slint";
-import { ConfigStore, SnapMode } from "../config_store.slint";
+import { ConfigStore, DisplayMode, SnapMode } from "../config_store.slint";
 import { DiskIoEntry, DiskMenuEntry, RuntimeStore } from "../runtime_store.slint";
 
-export { AboutWindow, ConfigStore, DiskIoEntry, DiskMenuEntry, RuntimeStore, SnapMode, Theme }
+export { AboutWindow, ConfigStore, DiskIoEntry, DiskMenuEntry, RuntimeStore, DisplayMode, SnapMode, Theme }
 
 export component AppWindow inherits Window {
     title: "Meter RS";
@@ -27,7 +27,7 @@ export component AppWindow inherits Window {
     callback win_move_up();
 
     content := VerticalLayout {
-        if (ConfigStore.simple_mode): SimpleWidget {
+        if (ConfigStore.display_mode == DisplayMode.simple || ConfigStore.display_mode == DisplayMode.taskbar): SimpleWidget {
             win_move(x, y) => {
                 root.win_move(x, y);
             }
@@ -37,7 +37,7 @@ export component AppWindow inherits Window {
             }
         }
 
-        if (!ConfigStore.simple_mode): NormalWidget {
+        if (ConfigStore.display_mode == DisplayMode.normal): NormalWidget {
             win_move(x, y) => {
                 root.win_move(x, y);
             }

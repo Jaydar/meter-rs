@@ -46,6 +46,24 @@ impl SnapMode {
     }
 }
 
+impl DisplayMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Normal => "normal",
+            Self::Simple => "simple",
+            Self::Taskbar => "taskbar",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "simple" => Self::Simple,
+            "taskbar" => Self::Taskbar,
+            _ => Self::Normal,
+        }
+    }
+}
+
 thread_local! {
     static MANAGER: RefCell<ViewManager> = RefCell::new(ViewManager::new());
 }
