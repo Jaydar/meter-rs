@@ -12,6 +12,40 @@ use crate::view::ViewTrait;
 
 slint::include_modules!();
 
+impl ThemeMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::System => "system",
+            Self::Dark => "dark",
+            Self::Light => "light",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "dark" => Self::Dark,
+            "light" => Self::Light,
+            _ => Self::System,
+        }
+    }
+}
+
+impl SnapMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::WorkArea => "work_area",
+            Self::FullScreen => "full_screen",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "full_screen" => Self::FullScreen,
+            _ => Self::WorkArea,
+        }
+    }
+}
+
 thread_local! {
     static MANAGER: RefCell<ViewManager> = RefCell::new(ViewManager::new());
 }

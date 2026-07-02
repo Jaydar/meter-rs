@@ -1,0 +1,21 @@
+import { ThemeMode } from "./theme.slint";
+
+export enum SnapMode { work_area, full_screen }
+
+export global ConfigStore {
+    in-out property <ThemeMode> theme_mode: ThemeMode.system;
+    in-out property <bool> auto_start: false;
+    in-out property <bool> mouse_passthrough: false;
+    in-out property <bool> prevent_sleep: false;
+    in-out property <bool> always_on_top: true;
+    in-out property <bool> snap_to_edge: true;
+    in-out property <SnapMode> snap_mode: SnapMode.work_area;
+    in-out property <float> window_opacity: 0.9;
+    in-out property <bool> simple_mode: false;
+    in-out property <bool> show_hostname: false;
+    in-out property <bool> show_cpu: true;
+    in-out property <bool> show_memory: true;
+    in-out property <bool> show_disk_total: true;
+    in-out property <bool> show_disk_io: false;
+    in-out property <bool> show_network: false;
+}

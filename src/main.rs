@@ -1,21 +1,16 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use anyhow::Result;
-use tracing::error;
 use std::{
     process::Command,
     sync::atomic::{AtomicUsize, Ordering},
 };
+use tracing::error;
 use windows::Win32::{
     Foundation::{HWND, LPARAM, WPARAM},
-    System::Threading::{
-        GetCurrentProcess, PROCESS_CREATION_FLAGS, PROCESS_POWER_THROTTLING_CURRENT_VERSION,
-        PROCESS_POWER_THROTTLING_EXECUTION_SPEED, PROCESS_POWER_THROTTLING_STATE,
-        ProcessPowerThrottling, SetPriorityClass, SetProcessInformation,
-    },
+    System::Threading::{GetCurrentProcess, PROCESS_CREATION_FLAGS, PROCESS_POWER_THROTTLING_CURRENT_VERSION, PROCESS_POWER_THROTTLING_EXECUTION_SPEED, PROCESS_POWER_THROTTLING_STATE, ProcessPowerThrottling, SetPriorityClass, SetProcessInformation},
     UI::WindowsAndMessaging::GetClassNameW,
 };
-
 
 mod base;
 mod ui;
@@ -26,25 +21,15 @@ use crate::view::ViewTrait;
 
 pub static MAIN_HWND: AtomicUsize = AtomicUsize::new(0);
 
-pub fn trim_memory() {
-    #[cfg(windows)]
-    unsafe {
-        use windows::Win32::System::ProcessStatus::EmptyWorkingSet;
-        use windows::Win32::System::Threading::{GetCurrentProcess, SetProcessWorkingSetSize};
-
-        let handle = GetCurrentProcess();
-        let _ = SetProcessWorkingSetSize(handle, usize::MAX, usize::MAX);
-        let _ = EmptyWorkingSet(handle);
-    }
-}
-
-fn install_main_window_hook() {
+fn run_app() -> Result<()> {
     hook::install_win32_hook(|_n_code: i32, w_param: WPARAM, _l_param: LPARAM| {
+        // 获取窗口句柄
         let hwnd = HWND(w_param.0 as _);
         let mut class_name = [0u16; 256];
         let len = unsafe { GetClassNameW(hwnd, &mut class_name) };
         let name = String::from_utf16_lossy(&class_name[..len as usize]);
 
+        // 判断主窗口
         if name.contains("Window Class") {
             let hwnd = hwnd.0 as usize;
             hook::uninstall_win32_hook();
@@ -52,11 +37,16 @@ fn install_main_window_hook() {
             tray::setup(hwnd);
 
             unsafe {
+                // 获取进程
                 let handle = GetCurrentProcess();
+
+
+                // 降低进程优先级，避免监控刷新影响前台程序。
                 if let Err(err) = SetPriorityClass(handle, PROCESS_CREATION_FLAGS(0x40)) {
                     error!("Failed to set process priority: {}", err);
                 }
 
+                // 开启 Windows 进程电源节流，后台运行时减少 CPU 调度压力。
                 let mut throttling = PROCESS_POWER_THROTTLING_STATE {
                     Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
                     ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
@@ -72,20 +62,15 @@ fn install_main_window_hook() {
             }
         }
     });
-}
-
-fn run_app() -> Result<()> {
-    install_main_window_hook();
     view::AppView::init_backend()?;
     let app = ui::use_view::<view::AppView>();
     app.show(None)?;
-
     Ok(())
 }
 
 fn main() -> Result<()> {
     log::init();
-    
+
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(run_app)) {
         Ok(Ok(())) => Ok(()),
         Ok(Err(_)) | Err(_) => {

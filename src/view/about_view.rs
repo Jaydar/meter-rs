@@ -27,9 +27,9 @@ impl ViewTrait for AboutView {
 
     fn show(&self, _extra: Option<&dyn std::any::Any>) -> Result<()> {
         let app_view = ui::use_view::<crate::view::AppView>();
-        let app_store = app_view.ui.global::<ui::Store>();
+        let app_store = app_view.ui.global::<ui::ConfigStore>();
         let theme_mode = app_store.get_theme_mode();
-        self.ui.global::<ui::Store>().set_theme_mode(theme_mode);
+        self.ui.global::<ui::ConfigStore>().set_theme_mode(theme_mode);
         self.ui.global::<ui::Theme>().set_mode(theme_mode);
         let _ = self.ui.show();
         self.set_position();
@@ -84,3 +84,4 @@ impl ViewTrait for AboutView {
         self
     }
 }
+

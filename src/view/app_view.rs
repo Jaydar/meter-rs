@@ -5,14 +5,7 @@ use std::sync::atomic::Ordering;
 use tracing::error;
 use winit::platform::windows::WindowAttributesExtWindows;
 
-use crate::{
-    MAIN_HWND,
-    base,
-    task,
-    tools,
-    ui,
-    view::{Menu1View, ViewTrait},
-};
+use crate::{MAIN_HWND, base, task, tools, ui, view::ViewTrait};
 
 pub struct AppView {
     pub ui: ui::AppWindow,
@@ -20,9 +13,7 @@ pub struct AppView {
 
 impl AppView {
     pub fn init_backend() -> Result<()> {
-        i_slint_backend_selector::api::BackendSelector::new()
-            .with_winit_window_attributes_hook(|attr| attr.with_skip_taskbar(true))
-            .select()?;
+        i_slint_backend_selector::api::BackendSelector::new().with_winit_window_attributes_hook(|attr| attr.with_skip_taskbar(true)).select()?;
         Ok(())
     }
 }
@@ -37,9 +28,14 @@ impl ViewTrait for AppView {
     }
 
     fn show(&self, _extra: Option<&dyn std::any::Any>) -> Result<()> {
+        crate::base::config::load(&self.ui);
         self.ui.show()?;
         self.set_position();
-        self.ui.global::<ui::Store>().set_auto_start(tools::is_auto_start());
+        let hwnd = MAIN_HWND.load(Ordering::Relaxed);
+        if hwnd != 0 && self.ui.global::<ui::ConfigStore>().get_mouse_passthrough() {
+            tools::set_mouse_passthrough(hwnd, true);
+        }
+        self.ui.global::<ui::ConfigStore>().set_auto_start(tools::is_auto_start());
         task::start_monitor(&self.ui);
         slint::run_event_loop()?;
         Ok(())
@@ -63,11 +59,14 @@ impl ViewTrait for AppView {
                     return;
                 }
 
-                let size = ui.window().size();
-                let width = size.width as i32;
-                let height = size.height as i32;
-
                 if let Some((wa_left, wa_top, wa_right, wa_bottom)) = tools::get_work_area(hwnd) {
+                    if let Some(taskbar_height) = tools::get_taskbar_height(hwnd) {
+                        let scale_factor = ui.window().scale_factor();
+                        ui.global::<ui::RuntimeStore>().set_taskbar_height(((taskbar_height as f32 - 6.0).max(1.0)) / scale_factor);
+                    }
+                    let size = ui.window().size();
+                    let width = size.width as i32;
+                    let height = size.height as i32;
                     let x = (wa_right - width).max(wa_left);
                     let y = (wa_bottom - height).max(wa_top);
                     ui.window().set_position(slint::PhysicalPosition::new(x, y));
@@ -98,7 +97,7 @@ impl ViewTrait for AppView {
             let weak = weak.clone();
             move || {
                 if let Some(view_inst) = weak.upgrade() {
-                    if !view_inst.global::<ui::Store>().get_snap_to_edge() {
+                    if !view_inst.global::<ui::ConfigStore>().get_snap_to_edge() {
                         return;
                     }
                     let window = view_inst.window();
@@ -112,7 +111,8 @@ impl ViewTrait for AppView {
                         let width = size.2 - size.0;
                         let height = size.3 - size.1;
 
-                        if let Some((wa_left, wa_top, wa_right, wa_bottom)) = base::tools::get_work_area(hwnd) {
+                        let snap_area = if view_inst.global::<ui::ConfigStore>().get_snap_mode() == ui::SnapMode::FullScreen { base::tools::get_monitor_area(hwnd) } else { base::tools::get_work_area(hwnd) };
+                        if let Some((wa_left, wa_top, wa_right, wa_bottom)) = snap_area {
                             let mut target_x = cur_x;
                             let mut target_y = cur_y;
                             let snap_dist = 50;
@@ -138,13 +138,6 @@ impl ViewTrait for AppView {
             }
         });
 
-        self.ui.on_show_menu(move |_, _| {
-            let menu_view = ui::use_view::<Menu1View>();
-            if let Err(err) = menu_view.show(None) {
-                error!("{}", err);
-            }
-        });
-
         self
     }
 
@@ -152,3 +145,4 @@ impl ViewTrait for AppView {
         self
     }
 }
+

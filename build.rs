@@ -5,18 +5,24 @@ fn main() {
 
     #[cfg(windows)]
     {
-        if std::env::var_os("RC_PATH").is_none() {
-            unsafe {
-                std::env::set_var(
-                    "RC_PATH",
-                    r"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\rc.exe",
-                )
-            };
+        if std::env::var_os("RC_PATH").is_none() && find_rc_path().is_none() {
+            println!("cargo:warning=rc.exe not found, skip Windows resource");
+        } else {
+            winresource::WindowsResource::new().compile().unwrap();
         }
-        winresource::WindowsResource::new().compile().unwrap();
     }
 
     let conf = slint_build::CompilerConfiguration::default().with_style("cosmic".to_owned());
     slint_build::compile_with_config("ui/page/app.slint", conf).unwrap();
     slint_build::print_rustc_flags().unwrap();
+}
+
+#[cfg(windows)]
+fn find_rc_path() -> Option<()> {
+    let base = std::path::Path::new(r"C:\Program Files (x86)\Windows Kits\10\bin");
+    let mut paths = std::fs::read_dir(base).ok()?.filter_map(Result::ok).map(|entry| entry.path().join("x64").join("rc.exe")).filter(|path| path.exists()).collect::<Vec<_>>();
+    paths.sort();
+    let path = paths.pop()?;
+    unsafe { std::env::set_var("RC_PATH", path) };
+    Some(())
 }
