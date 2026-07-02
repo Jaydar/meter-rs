@@ -53,6 +53,7 @@ export component SimpleWidget inherits Rectangle {
                 padding-right: 8px;
                 spacing: 5px;
                 alignment: center;
+                cross-axis-alignment: center;
 
                 if (ConfigStore.show_hostname): Text {
                     text: RuntimeStore.computer_name;
@@ -64,44 +65,48 @@ export component SimpleWidget inherits Rectangle {
 
                 if (ConfigStore.show_cpu): HorizontalLayout {
                     spacing: 2px;
-                    Text { text: "CPU"; color: Theme.text; font-size: 9pt; vertical-alignment: center; }
-                    Text { text: RuntimeStore.cpu_usage.to-fixed(1) + "%"; color: root.get_cpu_color(RuntimeStore.cpu_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                    Text { text: "CPU:"; color: Theme.text; font-size: 9pt; vertical-alignment: center; }
+                    Text { width: 38px; text: RuntimeStore.cpu_usage.to-fixed(1) + "%"; color: root.get_cpu_color(RuntimeStore.cpu_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
                 }
 
                 if (ConfigStore.show_memory): HorizontalLayout {
                     spacing: 2px;
-                    Text { text: "内存"; color: Theme.text; font-size: 9pt; vertical-alignment: center; }
-                    Text { text: RuntimeStore.memory_usage.to-fixed(1) + "%"; color: root.get_mem_color(RuntimeStore.memory_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                    Text { text: "内存:"; color: Theme.text; font-size: 9pt; vertical-alignment: center; }
+                    Text { width: 38px; text: RuntimeStore.memory_usage.to-fixed(1) + "%"; color: root.get_mem_color(RuntimeStore.memory_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
                 }
 
                 if (ConfigStore.show_disk_total): HorizontalLayout {
                     spacing: 2px;
-                    Text { text: "磁盘"; color: Theme.text; font-size: 9pt; vertical-alignment: center; }
-                    Text { text: RuntimeStore.disk_usage.to-fixed(1) + "%"; color: root.get_disk_color(RuntimeStore.disk_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                    Text { text: "磁盘:"; color: Theme.text; font-size: 9pt; vertical-alignment: center; }
+                    Text { width: 38px; text: RuntimeStore.disk_usage.to-fixed(1) + "%"; color: root.get_disk_color(RuntimeStore.disk_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
                 }
 
-                if (ConfigStore.show_disk_io): HorizontalLayout {
-                    spacing: 2px;
-                    Text { text: "读"; color: Theme.text; font-size: 9pt; vertical-alignment: center; }
-                    Text { text: RuntimeStore.disk_total_read; color: Theme.text-low; font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                if (ConfigStore.show_disk_io): VerticalLayout {
+                    spacing: 0px;
+                    HorizontalLayout {
+                        spacing: 2px;
+                        Text { text: "读:"; color: Theme.text; font-size: 8pt; vertical-alignment: center; }
+                        Text { width: 60px; text: RuntimeStore.disk_total_read; color: Theme.text-low; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
+                    }
+                    HorizontalLayout {
+                        spacing: 2px;
+                        Text { text: "写:"; color: Theme.text; font-size: 8pt; vertical-alignment: center; }
+                        Text { width: 60px; text: RuntimeStore.disk_total_write; color: Theme.text-mid; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
+                    }
                 }
 
-                if (ConfigStore.show_disk_io): HorizontalLayout {
-                    spacing: 2px;
-                    Text { text: "写"; color: Theme.text; font-size: 9pt; vertical-alignment: center; }
-                    Text { text: RuntimeStore.disk_total_write; color: Theme.text-mid; font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
-                }
-
-                if (ConfigStore.show_network): HorizontalLayout {
-                    spacing: 2px;
-                    Text { text: "下"; color: Theme.text; font-size: 9pt; vertical-alignment: center; }
-                    Text { text: RuntimeStore.network_rx; color: Theme.text-low; font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
-                }
-
-                if (ConfigStore.show_network): HorizontalLayout {
-                    spacing: 2px;
-                    Text { text: "上"; color: Theme.text; font-size: 9pt; vertical-alignment: center; }
-                    Text { text: RuntimeStore.network_tx; color: Theme.text-low; font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                if (ConfigStore.show_network): VerticalLayout {
+                    spacing: 0px;
+                    HorizontalLayout {
+                        spacing: 2px;
+                        Text { text: "下:"; color: Theme.text; font-size: 8pt; vertical-alignment: center; }
+                        Text { width: 60px; text: RuntimeStore.network_rx; color: Theme.text-low; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
+                    }
+                    HorizontalLayout {
+                        spacing: 2px;
+                        Text { text: "上:"; color: Theme.text; font-size: 8pt; vertical-alignment: center; }
+                        Text { width: 60px; text: RuntimeStore.network_tx; color: Theme.text-low; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
+                    }
                 }
             }
         }

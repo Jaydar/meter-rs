@@ -97,6 +97,8 @@ impl ViewTrait for AppView {
             let weak = weak.clone();
             move || {
                 if let Some(view_inst) = weak.upgrade() {
+                    let height_bias = if view_inst.get_height_bias() == 0.0 { 0.1 } else { 0.0 };
+                    view_inst.set_height_bias(height_bias);
                     if !view_inst.global::<ui::ConfigStore>().get_snap_to_edge() {
                         return;
                     }

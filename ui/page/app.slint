@@ -18,9 +18,10 @@ export component AppWindow inherits Window {
     default-font-family: Theme.font-family;
     default-font-weight: Theme.font-weight;
     width: content.preferred-width;
-    height: content.preferred-height;
+    height: content.preferred-height + root.height_bias;
 
     in-out property <bool> always_on_top_state: true;
+    in-out property <length> height_bias: 0px;
 
     callback win_move(length, length);
     callback win_move_up();
