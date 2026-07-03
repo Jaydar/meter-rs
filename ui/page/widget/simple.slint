@@ -1,0 +1,114 @@
+import "../../assets/remixicon.ttf";
+import { Theme } from "../../theme.slint";
+import { ConfigStore } from "../../config_store.slint";
+import { RuntimeStore } from "../../runtime_store.slint";
+
+export component SimpleWidget inherits Rectangle {
+    background: Theme.window-bg.with-alpha(ConfigStore.window_opacity);
+    border-radius: 5px;
+    preferred-width: simple_layout.preferred-width;
+    preferred-height: RuntimeStore.taskbar_height;
+    width: simple_layout.preferred-width;
+    height: RuntimeStore.taskbar_height;
+    clip: true;
+
+    callback win_move(length, length);
+    callback win_move_up();
+
+    function get_cpu_color(usage: float) -> color {
+        return usage > 50 ? Theme.text-high : (usage > 20 ? Theme.text-mid : Theme.text-low);
+    }
+
+    function get_mem_color(usage: float) -> color {
+        return usage > 80 ? Theme.text-high : (usage > 50 ? Theme.text-mid : Theme.text-low);
+    }
+
+    function get_disk_color(usage: float) -> color {
+        return usage > 80 ? Theme.text-high : (usage > 50 ? Theme.text-mid : Theme.text-low);
+    }
+
+    function simple_width() -> length {
+        return 20px + (ConfigStore.show_hostname ? 110px : 0px) + (ConfigStore.show_cpu ? 72px : 0px) + (ConfigStore.show_memory ? 80px : 0px) + (ConfigStore.show_disk_total ? 80px : 0px) + (ConfigStore.show_disk_io ? 180px : 0px) + (ConfigStore.show_network ? 180px : 0px);
+    }
+
+    simple_layout := HorizontalLayout {
+
+        TouchArea {
+            height: root.height;
+            mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
+
+            pointer-event(event) => {
+                if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
+                    root.win_move_up();
+                }
+            }
+
+            moved => {
+                root.win_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
+            }
+
+            simple_items := HorizontalLayout {
+                height: root.height;
+                padding-left: 8px;
+                padding-right: 8px;
+                spacing: 8px;
+                alignment: center;
+                cross-axis-alignment: center;
+
+                if (ConfigStore.show_hostname): Text {
+                    text: RuntimeStore.computer_name;
+                    color: Theme.sub-title;
+                    font-size: 9pt;
+                    letter-spacing: 2px;
+                    vertical-alignment: center;
+                }
+
+                if (ConfigStore.show_cpu): HorizontalLayout {
+                    spacing: 2px;
+                    Text { text: "\u{ebf0}"; color: Theme.text; font-size: 14pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
+                    Text { width: 38px; text: RuntimeStore.cpu_usage.to-fixed(1) + "%"; color: root.get_cpu_color(RuntimeStore.cpu_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                }
+
+                if (ConfigStore.show_memory): HorizontalLayout {
+                    spacing: 2px;
+                    Text { text: "\u{f452}"; color: Theme.text; font-size: 14pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
+                    Text { width: 38px; text: RuntimeStore.memory_usage.to-fixed(1) + "%"; color: root.get_mem_color(RuntimeStore.memory_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                }
+
+                if (ConfigStore.show_disk_total): HorizontalLayout {
+                    spacing: 2px;
+                    Text { text: "\u{edf8}"; color: Theme.text; font-size: 14pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
+                    Text { width: 38px; text: RuntimeStore.disk_usage.to-fixed(1) + "%"; color: root.get_disk_color(RuntimeStore.disk_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                }
+
+                if (ConfigStore.show_disk_io): VerticalLayout {
+                    spacing: 0px;
+                    HorizontalLayout {
+                        spacing: 2px;
+                        Text { width: 14px; text: "\u{ec5a}"; color: Theme.text; font-size: 9pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
+                        Text { width: 60px; text: RuntimeStore.disk_total_read; color: Theme.text-low; font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                    }
+                    HorizontalLayout {
+                        spacing: 2px;
+                        Text { width: 14px; text: "\u{f250}"; color: Theme.text; font-size: 9pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
+                        Text { width: 60px; text: RuntimeStore.disk_total_write; color: Theme.text-mid; font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                    }
+                }
+
+                if (ConfigStore.show_network): VerticalLayout {
+                    spacing: 0px;
+                    HorizontalLayout {
+                        spacing: 2px;
+                        Text { width: 14px; text: "\u{ec5a}"; color: Theme.text; font-size: 9pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
+                        Text { width: 60px; text: RuntimeStore.network_rx; color: Theme.text-low; font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                    }
+                    HorizontalLayout {
+                        spacing: 2px;
+                        Text { width: 14px; text: "\u{f250}"; color: Theme.text; font-size: 9pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
+                        Text { width: 60px; text: RuntimeStore.network_tx; color: Theme.text-low; font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -10,7 +10,7 @@ use windows::Win32::{
     },
 };
 
-const ZERO_RATE: &str = "0.00 KB";
+const _zero_rate: &str = "0.00 KB";
 
 struct MonitorRequest {
     show_disk_total: bool,
@@ -20,16 +20,16 @@ struct MonitorRequest {
 }
 
 fn format_rate(bytes: u64) -> String {
-    const UNITS: [&str; 4] = ["KB", "MB", "GB", "TB"];
+    const _units: [&str; 4] = ["KB", "MB", "GB", "TB"];
     let mut value = bytes as f64 / 1024.0;
     let mut idx = 0usize;
 
-    while value >= 1024.0 && idx < UNITS.len() - 1 {
+    while value >= 1024.0 && idx < _units.len() - 1 {
         value /= 1024.0;
         idx += 1;
     }
 
-    format!("{value:.2} {}", UNITS[idx])
+    format!("{value:.2} {}", _units[idx])
 }
 
 fn get_computer_name() -> String {
@@ -73,8 +73,8 @@ pub fn refresh_disk_menu(view: &ui::AppWindow) {
     let mut disks = Disks::new();
     disks.refresh_specifics(true, DiskRefreshKind::nothing().with_storage());
 
-    let store = view.global::<ui::Store>();
-    let model = store.get_disk_menu_entries();
+    let runtime_store = view.global::<ui::RuntimeStore>();
+    let model = runtime_store.get_disk_menu_entries();
     let mut selected_ids = Vec::new();
     for i in 0..model.row_count() {
         if let Some(entry) = model.row_data(i) {
@@ -106,9 +106,8 @@ pub fn refresh_disk_menu(view: &ui::AppWindow) {
         .collect::<Vec<_>>();
     let has_monitored_disks = !selected_ids.is_empty();
 
-    let store = view.global::<ui::Store>();
-    store.set_disk_menu_entries(ModelRc::from(disk_menu_entries.as_slice()));
-    store.set_has_monitored_disks(has_monitored_disks);
+    runtime_store.set_disk_menu_entries(ModelRc::from(disk_menu_entries.as_slice()));
+    runtime_store.set_has_monitored_disks(has_monitored_disks);
 }
 
 pub fn start_monitor(view: &ui::AppWindow) {
@@ -118,9 +117,9 @@ pub fn start_monitor(view: &ui::AppWindow) {
     let cpu_last = cpu_last.min((usize::BITS as usize).saturating_sub(1));
     let mask: usize = 1usize << cpu_last;
 
-    let store = view.global::<ui::Store>();
-    store.set_computer_name(get_computer_name().into());
-    let model = store.get_disk_menu_entries();
+    let runtime_store = view.global::<ui::RuntimeStore>();
+    runtime_store.set_computer_name(get_computer_name().into());
+    let model = runtime_store.get_disk_menu_entries();
     let mut has_monitored_disks = false;
     for i in 0..model.row_count() {
         if let Some(entry) = model.row_data(i) {
@@ -130,7 +129,7 @@ pub fn start_monitor(view: &ui::AppWindow) {
             }
         }
     }
-    store.set_has_monitored_disks(has_monitored_disks);
+    runtime_store.set_has_monitored_disks(has_monitored_disks);
 
     let weak = view.as_weak();
 
@@ -152,8 +151,9 @@ pub fn start_monitor(view: &ui::AppWindow) {
                 let weak_request = weak.clone();
                 if weak_request
                     .upgrade_in_event_loop(move |ui| {
-                        let store = ui.global::<ui::Store>();
-                        let model = store.get_disk_menu_entries();
+                        let config_store = ui.global::<ui::ConfigStore>();
+                        let runtime_store = ui.global::<ui::RuntimeStore>();
+                        let model = runtime_store.get_disk_menu_entries();
                         let mut selected_disk_ids = Vec::new();
                         for i in 0..model.row_count() {
                             if let Some(entry) = model.row_data(i) {
@@ -164,9 +164,9 @@ pub fn start_monitor(view: &ui::AppWindow) {
                         }
 
                         let _ = request_tx.send(MonitorRequest {
-                            show_disk_total: store.get_show_disk_total(),
-                            show_disk_io: store.get_show_disk_io(),
-                            show_network: store.get_show_network(),
+                            show_disk_total: config_store.get_show_disk_total(),
+                            show_disk_io: config_store.get_show_disk_io(),
+                            show_network: config_store.get_show_network(),
                             selected_disk_ids,
                         });
                     })
@@ -191,8 +191,8 @@ pub fn start_monitor(view: &ui::AppWindow) {
                 };
 
                 let mut disk_usage = 0.0;
-                let mut disk_total_read = ZERO_RATE.to_string();
-                let mut disk_total_write = ZERO_RATE.to_string();
+                let mut disk_total_read = _zero_rate.to_string();
+                let mut disk_total_write = _zero_rate.to_string();
                 let mut monitored_disks = Vec::new();
                 let mut has_monitored_disks = had_monitored_disks;
 
@@ -277,12 +277,12 @@ pub fn start_monitor(view: &ui::AppWindow) {
                             if request.show_disk_io {
                                 format_rate(total_read)
                             } else {
-                                ZERO_RATE.to_string()
+                                _zero_rate.to_string()
                             },
                             if request.show_disk_io {
                                 format_rate(total_write)
                             } else {
-                                ZERO_RATE.to_string()
+                                _zero_rate.to_string()
                             },
                             monitored,
                             has_monitored_disks,
@@ -306,24 +306,24 @@ pub fn start_monitor(view: &ui::AppWindow) {
                     });
                     (format_rate(rx), format_rate(tx))
                 } else {
-                    (ZERO_RATE.to_string(), ZERO_RATE.to_string())
+                    (_zero_rate.to_string(), _zero_rate.to_string())
                 };
 
                 let weak = weak.clone();
                 let selected_disk_ids = request.selected_disk_ids;
                 let _ = weak.upgrade_in_event_loop(move |ui| {
-                    let store = ui.global::<ui::Store>();
-                    store.set_cpu_usage(cpu_usage);
-                    store.set_memory_usage(memory_usage);
-                    store.set_disk_usage(disk_usage);
-                    store.set_network_rx(network_rx.into());
-                    store.set_network_tx(network_tx.into());
-                    store.set_disk_total_read(disk_total_read.into());
-                    store.set_disk_total_write(disk_total_write.into());
-                    store.set_monitored_disks(ModelRc::from(monitored_disks.as_slice()));
+                    let runtime_store = ui.global::<ui::RuntimeStore>();
+                    runtime_store.set_cpu_usage(cpu_usage);
+                    runtime_store.set_memory_usage(memory_usage);
+                    runtime_store.set_disk_usage(disk_usage);
+                    runtime_store.set_network_rx(network_rx.into());
+                    runtime_store.set_network_tx(network_tx.into());
+                    runtime_store.set_disk_total_read(disk_total_read.into());
+                    runtime_store.set_disk_total_write(disk_total_write.into());
+                    runtime_store.set_monitored_disks(ModelRc::from(monitored_disks.as_slice()));
 
                     if had_monitored_disks {
-                        let model = store.get_disk_menu_entries();
+                        let model = runtime_store.get_disk_menu_entries();
                         let mut entries = Vec::new();
                         for i in 0..model.row_count() {
                             if let Some(mut entry) = model.row_data(i) {
@@ -333,10 +333,9 @@ pub fn start_monitor(view: &ui::AppWindow) {
                                 entries.push(entry);
                             }
                         }
-                        store.set_disk_menu_entries(ModelRc::from(entries.as_slice()));
                     }
 
-                    store.set_has_monitored_disks(has_monitored_disks);
+                    runtime_store.set_has_monitored_disks(has_monitored_disks);
                 });
 
                 if !trimmed_after_start {
@@ -348,3 +347,4 @@ pub fn start_monitor(view: &ui::AppWindow) {
             }
         });
 }
+

@@ -1,0 +1,271 @@
+import { Theme } from "../../theme.slint";
+import { ConfigStore } from "../../config_store.slint";
+import { RuntimeStore } from "../../runtime_store.slint";
+
+export component NormalWidget inherits Rectangle {
+    background: Theme.window-bg.with-alpha(ConfigStore.window_opacity);
+    border-radius: 10px;
+    preferred-width: 200px;
+    preferred-height: normal_mode.preferred-height;
+    width: 200px;
+    height: normal_mode.preferred-height;
+    clip: true;
+
+    callback win_move(length, length);
+    callback win_move_up();
+
+    function get_cpu_color(usage: float) -> color {
+        return usage > 50 ? Theme.text-high : (usage > 20 ? Theme.text-mid : Theme.text-low);
+    }
+
+    function get_mem_color(usage: float) -> color {
+        return usage > 80 ? Theme.text-high : (usage > 50 ? Theme.text-mid : Theme.text-low);
+    }
+
+    function get_disk_color(usage: float) -> color {
+        return usage > 80 ? Theme.text-high : (usage > 50 ? Theme.text-mid : Theme.text-low);
+    }
+
+    normal_mode := VerticalLayout {
+        width: 200px;
+        padding: 10px;
+        spacing: 8px;
+
+        TouchArea {
+            width: 100%;
+            height: title_text.preferred-height;
+
+            mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
+
+            moved => {
+                root.win_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
+            }
+
+            pointer-event(event) => {
+                if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
+                    root.win_move_up();
+                }
+            }
+
+            title_text := Text {
+                width: 100%;
+                text: "Meter RS";
+                color: Theme.title;
+                font-size: 12pt;
+                font-weight: 800;
+                horizontal-alignment: center;
+                letter-spacing: 2px;
+            }
+        }
+
+        TouchArea {
+            width: 100%;
+            height: normal_layout.preferred-height;
+            mouse-cursor: MouseCursor.default;
+
+            normal_layout := VerticalLayout {
+                spacing: 8px;
+
+                if (ConfigStore.show_hostname || ConfigStore.show_cpu || ConfigStore.show_memory || ConfigStore.show_disk_total): Rectangle {
+                    width: 100%;
+                    height: basic_card.preferred-height;
+                    border-radius: 8px;
+                    background: Theme.card-bg;
+
+                    basic_card := VerticalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        padding-top: 10px;
+                        padding-bottom: 10px;
+                        spacing: 3px;
+
+                        if (ConfigStore.show_hostname): Text {
+                            text: RuntimeStore.computer_name;
+                            color: Theme.sub-title;
+                            font-size: 10pt;
+                            letter-spacing: 2px;
+                        }
+
+                        if (ConfigStore.show_cpu): HorizontalLayout {
+                            alignment: space-between;
+                            Text { text: "CPU"; color: Theme.text; font-size: 9pt; }
+                            Text { text: RuntimeStore.cpu_usage.to-fixed(1) + "%"; color: root.get_cpu_color(RuntimeStore.cpu_usage); font-size: 9pt; }
+                        }
+
+                        if (ConfigStore.show_memory): HorizontalLayout {
+                            alignment: space-between;
+                            Text { text: "内存占用"; color: Theme.text; font-size: 9pt; }
+                            Text { text: RuntimeStore.memory_usage.to-fixed(1) + "%"; color: root.get_mem_color(RuntimeStore.memory_usage); font-size: 9pt; }
+                        }
+
+                        if (ConfigStore.show_disk_total): HorizontalLayout {
+                            alignment: space-between;
+                            Text { text: "磁盘占用"; color: Theme.text; font-size: 9pt; }
+                            Text { text: RuntimeStore.disk_usage.to-fixed(1) + "%"; color: root.get_disk_color(RuntimeStore.disk_usage); font-size: 9pt; }
+                        }
+                    }
+                }
+
+                if (ConfigStore.show_disk_io): Rectangle {
+                    width: 100%;
+                    height: disk_io_card.preferred-height;
+                    border-radius: 8px;
+                    background: Theme.card-bg;
+
+                    disk_io_card := VerticalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        padding-top: 8px;
+                        padding-bottom: 8px;
+                        spacing: 4px;
+
+                        Text { text: "磁盘IO"; color: Theme.sub-title; font-size: 10pt; font-weight: 600; letter-spacing: 2px; }
+
+                        HorizontalLayout {
+                            spacing: 0px;
+
+                            Rectangle {
+                                width: 50%;
+                                background: transparent;
+                                clip: true;
+
+                                VerticalLayout {
+                                    padding-left: 2px;
+                                    padding-right: 2px;
+                                    spacing: 2px;
+                                    Text { width: 100%; text: "读取"; color: Theme.text; font-size: 9pt; horizontal-alignment: center; }
+                                    Text { width: 100%; text: RuntimeStore.disk_total_read; color: Theme.text-low; font-size: 9pt; horizontal-alignment: center; }
+                                }
+                            }
+
+                            Rectangle {
+                                width: 50%;
+                                background: transparent;
+                                clip: true;
+
+                                VerticalLayout {
+                                    padding-left: 2px;
+                                    padding-right: 2px;
+                                    spacing: 2px;
+                                    Text { width: 100%; text: "写入"; color: Theme.text; font-size: 9pt; horizontal-alignment: center; }
+                                    Text { width: 100%; text: RuntimeStore.disk_total_write; color: Theme.text-low; font-size: 9pt; horizontal-alignment: center; }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (ConfigStore.show_network): Rectangle {
+                    width: 100%;
+                    height: network_card.preferred-height;
+                    border-radius: 8px;
+                    background: Theme.card-bg;
+
+                    network_card := VerticalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        padding-top: 8px;
+                        padding-bottom: 8px;
+                        spacing: 4px;
+
+                        Text { text: "网络"; color: Theme.sub-title; font-size: 10pt; letter-spacing: 2px; }
+
+                        HorizontalLayout {
+                            spacing: 0px;
+
+                            Rectangle {
+                                width: 50%;
+                                background: transparent;
+                                clip: true;
+
+                                VerticalLayout {
+                                    padding-left: 2px;
+                                    padding-right: 2px;
+                                    spacing: 2px;
+                                    Text { width: 100%; text: "上传"; color: Theme.text; font-size: 9pt; horizontal-alignment: center; }
+                                    Text { width: 100%; text: RuntimeStore.network_tx; color: Theme.text-low; font-size: 9pt; horizontal-alignment: center; }
+                                }
+                            }
+
+                            Rectangle {
+                                width: 50%;
+                                background: transparent;
+                                clip: true;
+
+                                VerticalLayout {
+                                    padding-left: 2px;
+                                    padding-right: 2px;
+                                    spacing: 2px;
+                                    Text { width: 100%; text: "下载"; color: Theme.text; font-size: 9pt; horizontal-alignment: center; }
+                                    Text { width: 100%; text: RuntimeStore.network_rx; color: Theme.text-low; font-size: 9pt; horizontal-alignment: center; }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (RuntimeStore.monitored_disks.length > 0): Rectangle {
+                    width: 100%;
+                    height: monitored_disks_card.preferred-height;
+                    border-radius: 8px;
+                    background: Theme.card-bg;
+
+                    monitored_disks_card := VerticalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        padding-top: 8px;
+                        padding-bottom: 8px;
+                        spacing: 4px;
+
+                        Text { text: "磁盘监控"; color: Theme.sub-title; font-size: 10pt; letter-spacing: 2px; }
+
+                        for disk in RuntimeStore.monitored_disks: VerticalLayout {
+                            spacing: 4px;
+
+                            HorizontalLayout {
+                                alignment: space-between;
+                                Text { text: disk.name; color: Theme.text; font-size: 9pt; }
+                                Text { text: disk.usage.to-fixed(1) + "%"; color: root.get_disk_color(disk.usage); font-size: 9pt; }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 5px;
+
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    background: transparent;
+                                    HorizontalLayout {
+                                        spacing: 0px;
+                                        Text { text: "R"; color: Theme.sub-title; font-size: 8.5pt; }
+                                        Text { width: 56px; text: disk.read; color: Theme.text-low; font-size: 8.5pt; horizontal-alignment: right; }
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: 1px;
+                                    background: Theme.menu-border;
+                                }
+
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    background: transparent;
+                                    HorizontalLayout {
+                                        spacing: 0px;
+                                        Text { text: "W"; color: Theme.text-mid; font-size: 8.5pt; }
+                                        Text { width: 56px; text: disk.write; color: Theme.text-low; font-size: 8.5pt; horizontal-alignment: right; }
+                                    }
+                                }
+                            }
+
+                            if (RuntimeStore.monitored_disks.length > 1 && disk.id != RuntimeStore.monitored_disks[RuntimeStore.monitored_disks.length - 1].id): Rectangle {
+                                height: 1px;
+                                background: Theme.menu-border;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+}

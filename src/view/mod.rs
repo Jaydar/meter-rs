@@ -6,10 +6,8 @@ pub use app_view::AppView;
 mod about_view;
 pub use about_view::AboutView;
 
-mod menu;
-pub use menu::Menu1View;
-
-
+mod mac_address_view;
+pub use mac_address_view::MacAddressView;
 
 pub trait ViewTrait {
     fn new() -> Self where Self: Sized;

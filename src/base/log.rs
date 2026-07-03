@@ -44,9 +44,9 @@ impl Write for FileWriter {
 }
 
 pub fn init() {
-    static INIT: OnceLock<()> = OnceLock::new();
+    static _init: OnceLock<()> = OnceLock::new();
 
-    INIT.get_or_init(|| {
+    _init.get_or_init(|| {
         let level = std::env::var("RUST_LOG").unwrap_or_else(|_| {
             if cfg!(debug_assertions) {
                 "trace".to_string()
