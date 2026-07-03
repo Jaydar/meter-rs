@@ -10,7 +10,7 @@ use windows::Win32::{
     },
 };
 
-const ZERO_RATE: &str = "0.00 KB";
+const _zero_rate: &str = "0.00 KB";
 
 struct MonitorRequest {
     show_disk_total: bool,
@@ -20,16 +20,16 @@ struct MonitorRequest {
 }
 
 fn format_rate(bytes: u64) -> String {
-    const UNITS: [&str; 4] = ["KB", "MB", "GB", "TB"];
+    const _units: [&str; 4] = ["KB", "MB", "GB", "TB"];
     let mut value = bytes as f64 / 1024.0;
     let mut idx = 0usize;
 
-    while value >= 1024.0 && idx < UNITS.len() - 1 {
+    while value >= 1024.0 && idx < _units.len() - 1 {
         value /= 1024.0;
         idx += 1;
     }
 
-    format!("{value:.2} {}", UNITS[idx])
+    format!("{value:.2} {}", _units[idx])
 }
 
 fn get_computer_name() -> String {
@@ -191,8 +191,8 @@ pub fn start_monitor(view: &ui::AppWindow) {
                 };
 
                 let mut disk_usage = 0.0;
-                let mut disk_total_read = ZERO_RATE.to_string();
-                let mut disk_total_write = ZERO_RATE.to_string();
+                let mut disk_total_read = _zero_rate.to_string();
+                let mut disk_total_write = _zero_rate.to_string();
                 let mut monitored_disks = Vec::new();
                 let mut has_monitored_disks = had_monitored_disks;
 
@@ -277,12 +277,12 @@ pub fn start_monitor(view: &ui::AppWindow) {
                             if request.show_disk_io {
                                 format_rate(total_read)
                             } else {
-                                ZERO_RATE.to_string()
+                                _zero_rate.to_string()
                             },
                             if request.show_disk_io {
                                 format_rate(total_write)
                             } else {
-                                ZERO_RATE.to_string()
+                                _zero_rate.to_string()
                             },
                             monitored,
                             has_monitored_disks,
@@ -306,7 +306,7 @@ pub fn start_monitor(view: &ui::AppWindow) {
                     });
                     (format_rate(rx), format_rate(tx))
                 } else {
-                    (ZERO_RATE.to_string(), ZERO_RATE.to_string())
+                    (_zero_rate.to_string(), _zero_rate.to_string())
                 };
 
                 let weak = weak.clone();

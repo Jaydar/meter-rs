@@ -1,5 +1,3 @@
-#![allow(non_upper_case_globals)]
-
 use std::{
     any::TypeId,
     cell::RefCell,
@@ -65,7 +63,7 @@ impl DisplayMode {
 }
 
 thread_local! {
-    static MANAGER: RefCell<ViewManager> = RefCell::new(ViewManager::new());
+    static _manager: RefCell<ViewManager> = RefCell::new(ViewManager::new());
 }
 
 pub struct ViewManager {
@@ -88,5 +86,5 @@ impl ViewManager {
 }
 
 pub fn use_view<T: 'static + ViewTrait>() -> &'static T {
-    MANAGER.with(|manager| manager.borrow_mut().get_static::<T>())
+    _manager.with(|manager_cell| manager_cell.borrow_mut().get_static::<T>())
 }

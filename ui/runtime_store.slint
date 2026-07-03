@@ -12,6 +12,13 @@ export struct DiskMenuEntry {
     checked: bool,
 }
 
+export struct NetworkAdapterEntry {
+    id: string,
+    name: string,
+    current_mac: string,
+    mac: string,
+}
+
 export global RuntimeStore {
     in-out property <length> taskbar_height: 40px;
     in-out property <float> cpu_usage: 0;

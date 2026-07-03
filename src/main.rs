@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![allow(non_upper_case_globals)]
 
 use anyhow::Result;
 use std::{
@@ -19,10 +20,11 @@ mod view;
 pub use base::{hook, log, task, tools, tray};
 use crate::view::ViewTrait;
 
-pub static MAIN_HWND: AtomicUsize = AtomicUsize::new(0);
+pub static _main_hwnd: AtomicUsize = AtomicUsize::new(0);
 
 fn run_app() -> Result<()> {
-    hook::install_win32_hook(|_n_code: i32, w_param: WPARAM, _l_param: LPARAM| {
+    let open_mac_address = std::env::args().any(|arg| arg == "--open-mac-address");
+    hook::install_win32_hook(move |_n_code: i32, w_param: WPARAM, _l_param: LPARAM| {
         // 获取窗口句柄
         let hwnd = HWND(w_param.0 as _);
         let mut class_name = [0u16; 256];
@@ -33,8 +35,10 @@ fn run_app() -> Result<()> {
         if name.contains("Window Class") {
             let hwnd = hwnd.0 as usize;
             hook::uninstall_win32_hook();
-            MAIN_HWND.store(hwnd, Ordering::Release);
-            tray::setup(hwnd);
+            _main_hwnd.store(hwnd, Ordering::Release);
+            if !open_mac_address {
+                tray::setup(hwnd);
+            }
 
             unsafe {
                 // 获取进程
@@ -63,6 +67,13 @@ fn run_app() -> Result<()> {
         }
     });
     view::AppView::init_backend()?;
+    if open_mac_address {
+        let app = ui::use_view::<view::AppView>();
+        base::config::load(&app.ui);
+        ui::use_view::<view::MacAddressView>().show(None)?;
+        slint::run_event_loop()?;
+        return Ok(());
+    }
     let app = ui::use_view::<view::AppView>();
     app.show(None)?;
     Ok(())

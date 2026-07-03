@@ -5,7 +5,7 @@ use std::sync::atomic::Ordering;
 use tracing::error;
 use winit::platform::windows::WindowAttributesExtWindows;
 
-use crate::{MAIN_HWND, base, task, tools, ui, view::ViewTrait};
+use crate::{_main_hwnd, base, task, tools, ui, view::ViewTrait};
 
 pub struct AppView {
     pub ui: ui::AppWindow,
@@ -31,7 +31,7 @@ impl ViewTrait for AppView {
         crate::base::config::load(&self.ui);
         self.ui.show()?;
         self.set_position();
-        let hwnd = MAIN_HWND.load(Ordering::Relaxed);
+        let hwnd = _main_hwnd.load(Ordering::Relaxed);
         if hwnd != 0 && self.ui.global::<ui::ConfigStore>().get_mouse_passthrough() {
             tools::set_mouse_passthrough(hwnd, true);
         }
@@ -54,7 +54,7 @@ impl ViewTrait for AppView {
             };
 
             if ui.window().winit_window().await.is_ok() {
-                let hwnd = MAIN_HWND.load(Ordering::Relaxed);
+                let hwnd = _main_hwnd.load(Ordering::Relaxed);
                 if hwnd == 0 {
                     return;
                 }
@@ -103,7 +103,7 @@ impl ViewTrait for AppView {
                         return;
                     }
                     let window = view_inst.window();
-                    let hwnd = MAIN_HWND.load(Ordering::Relaxed);
+                    let hwnd = _main_hwnd.load(Ordering::Relaxed);
                     if hwnd == 0 {
                         return;
                     }

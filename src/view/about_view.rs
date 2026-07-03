@@ -4,10 +4,10 @@ use anyhow::{Context, Result};
 use slint::ComponentHandle;
 use std::sync::atomic::Ordering;
 
-use crate::{tools, ui, view::ViewTrait, MAIN_HWND};
+use crate::{_main_hwnd, tools, ui, view::ViewTrait};
 
-const GITHUB_URL: &str = "https://github.com/Jaydar/meter-rs";
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+const _github_url: &str = "https://github.com/Jaydar/meter-rs";
+const _create_no_window: u32 = 0x0800_0000;
 
 pub struct AboutView {
     pub ui: ui::AboutWindow,
@@ -41,7 +41,7 @@ impl ViewTrait for AboutView {
     }
 
     fn set_position(&self) {
-        let hwnd = MAIN_HWND.load(Ordering::Relaxed);
+        let hwnd = _main_hwnd.load(Ordering::Relaxed);
         if hwnd == 0 {
             return;
         }
@@ -73,8 +73,8 @@ impl ViewTrait for AboutView {
         });
         self.ui.on_open_github(|| {
             let _ = Command::new("cmd")
-                .creation_flags(CREATE_NO_WINDOW)
-                .args(["/C", "start", "", GITHUB_URL])
+                .creation_flags(_create_no_window)
+                .args(["/C", "start", "", _github_url])
                 .spawn();
         });
         self

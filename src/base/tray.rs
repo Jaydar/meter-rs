@@ -10,18 +10,18 @@ use windows::{
 };
 
 use crate::{
-    MAIN_HWND, task, tools, ui,
-    view::{AboutView, AppView, ViewTrait},
+    _main_hwnd, task, tools, ui,
+    view::{AboutView, AppView, MacAddressView, ViewTrait},
 };
 
 thread_local! {
-    static TRAY: RefCell<Option<TrayIcon>> = const { RefCell::new(None) };
-    static EVENT_TIMER: RefCell<Option<slint::Timer>> = const { RefCell::new(None) };
+    static _tray: RefCell<Option<TrayIcon>> = const { RefCell::new(None) };
+    static _event_timer: RefCell<Option<slint::Timer>> = const { RefCell::new(None) };
 }
 
 pub fn setup(_hwnd: usize) {
     let result = slint::invoke_from_event_loop(|| {
-        TRAY.with(|tray| {
+        _tray.with(|tray| {
             if tray.borrow().is_some() {
                 return;
             }
@@ -55,7 +55,7 @@ pub fn setup(_hwnd: usize) {
 }
 
 fn start_event_timer() {
-    EVENT_TIMER.with(|timer| {
+    _event_timer.with(|timer| {
         if timer.borrow().is_some() {
             return;
         }
@@ -145,6 +145,15 @@ fn handle_menu_event(id: &str) {
         "turn_off_display" => tools::turn_off_display(),
         "restart_explorer" => tools::restart_explorer(),
         "clean_memory" => tools::clean_memory(),
+        "mac_address" => {
+            if tools::is_admin() {
+                if let Err(err) = ui::use_view::<MacAddressView>().show(None) {
+                    error!("{}", err);
+                }
+            } else if let Err(err) = tools::run_as_admin_open_mac_address() {
+                error!("{}", err);
+            }
+        }
         "about" => {
             if let Err(err) = ui::use_view::<AboutView>().show(None) {
                 error!("{}", err);
@@ -212,6 +221,7 @@ fn build_menu() -> Menu {
             &item("turn_off_display", "关闭显示器"),
             &item("restart_explorer", "重启资源管理器"),
             &item("clean_memory", "内存清理"),
+            &item("mac_address", "修改 MAC 地址"),
             &PredefinedMenuItem::separator(),
             &item("about", "关于 Meter RS"),
             &PredefinedMenuItem::separator(),
@@ -248,7 +258,7 @@ fn disk_menu(runtime_store: &ui::RuntimeStore) -> Submenu {
 }
 
 fn sync_tray() {
-    TRAY.with(|tray| {
+    _tray.with(|tray| {
         if let Some(tray_icon) = tray.borrow().as_ref() {
             apply_windows_menu_theme(ui::use_view::<AppView>().ui.global::<ui::ConfigStore>().get_theme_mode());
             tray_icon.set_menu(Some(Box::new(build_menu())));
@@ -318,7 +328,7 @@ pub(crate) fn set_display_mode(value: ui::DisplayMode) {
 pub(crate) fn set_mouse_passthrough(value: bool) {
     let app_view = ui::use_view::<AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_mouse_passthrough(value);
-    let hwnd = MAIN_HWND.load(std::sync::atomic::Ordering::Relaxed);
+    let hwnd = _main_hwnd.load(std::sync::atomic::Ordering::Relaxed);
     if hwnd != 0 {
         tools::set_mouse_passthrough(hwnd, value);
     }

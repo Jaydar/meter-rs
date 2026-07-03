@@ -1,0 +1,188 @@
+import "../assets/remixicon.ttf";
+import { Button, ComboBox, LineEdit } from "std-widgets.slint";
+import { NetworkAdapterEntry } from "../runtime_store.slint";
+import { Theme } from "../theme.slint";
+
+export component MacAddressWindow inherits Window {
+    width: 420px;
+    height: 292px;
+    background: transparent;
+    no-frame: true;
+    always-on-top: true;
+    default-font-size: 10pt;
+
+    in-out property <[NetworkAdapterEntry]> adapters: [];
+    in-out property <[string]> adapter_names: [];
+    in-out property <int> selected_index: 0;
+    in-out property <string> original_mac;
+    in-out property <string> new_mac;
+    in-out property <string> status_text;
+    in-out property <bool> success_dialog_visible: false;
+    in-out property <string> pending_adapter_id;
+    out property <string> current_mac: root.adapters.length > 0 && root.selected_index >= 0 && root.selected_index < root.adapters.length ? root.adapters[root.selected_index].current_mac : "";
+    out property <string> selected_id: root.adapters.length > 0 && root.selected_index >= 0 && root.selected_index < root.adapters.length ? root.adapters[root.selected_index].id : "";
+
+    callback win_move(length, length);
+    callback close_mac_address();
+    callback apply_mac_address(string, string, string);
+    callback restart_adapter(string);
+
+    changed selected-index => {
+        root.original_mac = root.adapters.length > 0 && root.selected_index >= 0 && root.selected_index < root.adapters.length ? root.adapters[root.selected_index].mac : "";
+    }
+
+    root_ta := TouchArea {
+        width: 100%;
+        height: 100%;
+        mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
+
+        moved => {
+            root.win_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
+        }
+
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            background: Theme.window-bg;
+            border-width: 1px;
+            border-color: Theme.menu-border;
+            drop-shadow-blur: 16px;
+
+            VerticalLayout {
+                padding: 12px;
+                spacing: 10px;
+
+                HorizontalLayout {
+                    Text {
+                        text: "修改 MAC 地址";
+                        color: Theme.title;
+                        font-size: 12pt;
+                        font-weight: 800;
+                    }
+
+
+
+                    close_btn := Rectangle {
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 4px;
+                        background: close_ta.has-hover ? Theme.menu-hover-bg : transparent;
+
+                        close_ta := TouchArea {
+                            mouse-cursor: MouseCursor.pointer;
+                            clicked => { root.close_mac_address(); }
+                        }
+
+                        Text {
+                            width: 100%;
+                            height: 100%;
+                            text: "\u{eb99}";
+                            color: close_ta.has-hover ? Theme.menu-hover-fg : Theme.text;
+                            font-size: 14px;
+                            font-family: "remixicon";
+                            vertical-alignment: center;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+
+                Rectangle { height: 1px; background: Theme.menu-border; }
+
+                VerticalLayout {
+                    spacing: 8px;
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { width: 70px; text: "网卡: "; color: Theme.text; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
+                        ComboBox { model: root.adapter_names; current-index <=> root.selected_index; enabled: root.adapters.length > 0; }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { width: 70px; text: "当前 MAC: "; color: Theme.text; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
+                        LineEdit { text: root.current_mac; read-only: true; }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { width: 70px; text: "原始 MAC: "; color: Theme.text; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
+                        LineEdit { text: root.original_mac; }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { width: 70px; text: "修改 MAC: "; color: Theme.text; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
+                        LineEdit { text <=> root.new_mac; placeholder-text: "00-00-00-00-00-00"; }
+                    }
+                }
+
+                Rectangle { height: 1px; background: Theme.menu-border; }
+
+                HorizontalLayout {
+                    Rectangle { horizontal-stretch: 1; background: transparent; }
+                    Button {
+                        height: 26px;
+                        text: "应用";
+                        primary: true;
+                        enabled: root.selected_id != "" && root.new_mac != "";
+                        clicked => { root.apply_mac_address(root.selected_id, root.original_mac, root.new_mac); }
+                    }
+                }
+            }
+
+            if (root.success_dialog_visible): Rectangle {
+                width: 100%;
+                height: 100%;
+                background: #00000066;
+
+                Rectangle {
+                    width: 300px;
+                    height: 128px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: 8px;
+                    background: Theme.card-bg;
+                    border-width: 1px;
+                    border-color: Theme.menu-border;
+
+                    VerticalLayout {
+                        padding: 14px;
+                        spacing: 10px;
+
+                        Text {
+                            text: "修改成功,需要重启网卡才可生效";
+                            color: Theme.text;
+                            font-size: 10pt;
+                            wrap: word-wrap;
+                        }
+
+                        Rectangle { vertical-stretch: 1; background: transparent; }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            Rectangle { horizontal-stretch: 1; background: transparent; }
+
+                            Button {
+                                height: 26px;
+                                text: "取消";
+                                clicked => { root.success_dialog_visible = false; }
+                            }
+
+                            Button {
+                                height: 26px;
+                                text: "重启";
+                                primary: true;
+                                clicked => {
+                                    root.success_dialog_visible = false;
+                                    root.restart_adapter(root.pending_adapter_id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
