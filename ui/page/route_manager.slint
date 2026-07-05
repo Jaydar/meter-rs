@@ -43,26 +43,27 @@ export component RouteManagerWindow inherits Window {
     in-out property <[NetworkAdapterEntry]> adapters: [];
     in-out property <[string]> adapter_names: [];
     in-out property <int> add_adapter_index: 0;
+    in-out property <bool> add_dialog_visible: false;
     in-out property <bool> add_adapter_menu_visible: false;
     in-out property <string> add_destination;
+    in-out property <string> add_next_hop;
+    in-out property <int> add_policy_store_index: 1;
     in-out property <string> add_metric;
     in-out property <string> status_text;
-    out property <string> add_adapter_id: root.adapters.length > 0 && root.add_adapter_index >= 0 && root.add_adapter_index < root.adapters.length ? root.adapters[root.add_adapter_index].id : "";
+    out property <[string]> policy_store_names: ["活动", "永久"];
+    out property <string> add_policy_store: root.add_policy_store_index == 0 ? "ActiveStore" : "PersistentStore";
+    out property <string> add_interface_index: root.add_adapter_index > 0 && root.add_adapter_index <= root.adapters.length ? root.adapters[root.add_adapter_index - 1].interface_index : "";
+    out property <string> selected_adapter_gateway: root.add_adapter_index > 0 && root.add_adapter_index <= root.adapters.length ? root.adapters[root.add_adapter_index - 1].gateway : "";
     out property <string> add_adapter_name: root.adapter_names.length > 0 && root.add_adapter_index >= 0 && root.add_adapter_index < root.adapter_names.length ? root.adapter_names[root.add_adapter_index] : "";
 
     callback win_move(length, length);
     callback close_route_manager();
-    callback add_route(string, string, string);
+    callback add_route(string, string, string, string, string);
     callback delete_route(string, string, string);
 
-    root_ta := TouchArea {
+    Rectangle {
         width: 100%;
         height: 100%;
-        mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
-
-        moved => {
-            root.win_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
-        }
 
         Rectangle {
             width: 100%;
@@ -71,43 +72,37 @@ export component RouteManagerWindow inherits Window {
             background: Theme.window-bg;
             border-width: 1px;
             border-color: Theme.menu-border;
-            drop-shadow-blur: 16px;
 
             VerticalLayout {
                 padding: 12px;
                 spacing: 8px;
 
-                HorizontalLayout {
-                    Text {
-                        text: "路由管理";
-                        color: Theme.title;
-                        font-size: 12pt;
-                        font-weight: 800;
+                Rectangle {
+                    height: 28px;
+
+                    title_ta := TouchArea {
+                        width: 100%;
+                        height: 100%;
+                        mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
+
+                        moved => {
+                            root.win_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
+                        }
                     }
 
-                    Rectangle { horizontal-stretch: 1; }
-
-                    close_btn := Rectangle {
-                        width: 24px;
-                        height: 24px;
-                        border-radius: 4px;
-                        background: close_ta.has-hover ? Theme.menu-hover-bg : transparent;
-
-                        close_ta := TouchArea {
-                            mouse-cursor: MouseCursor.pointer;
-                            clicked => { root.close_route_manager(); }
-                        }
-
+                    HorizontalLayout {
                         Text {
-                            width: 100%;
-                            height: 100%;
-                            text: "\u{eb99}";
-                            color: close_ta.has-hover ? Theme.menu-hover-fg : Theme.text;
-                            font-size: 14px;
-                            font-family: "remixicon";
+                            text: "路由管理";
+                            color: Theme.title;
+                            font-size: 12pt;
+                            font-weight: 800;
                             vertical-alignment: center;
-                            horizontal-alignment: center;
                         }
+
+                        Rectangle { horizontal-stretch: 1; }
+
+                        IconButton { icon: "\u{ea13}"; clicked => { root.add_dialog_visible = true; } }
+                        IconButton { icon: "\u{eb99}"; clicked => { root.close_route_manager(); } }
                     }
                 }
 
@@ -128,7 +123,8 @@ export component RouteManagerWindow inherits Window {
                             padding-right: 4px;
                             spacing: 4px;
                             Text { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; text: "目标"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
-                            Text { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; text: "网卡"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
+                            Text { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; text: "网关"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
+                            Text { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; text: "接口"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
                             Text { width: 44px; text: "跃点"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
                             Text { width: 44px; text: "来源"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
                             Text { width: 28px; text: "操作"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
@@ -139,13 +135,14 @@ export component RouteManagerWindow inherits Window {
                         vertical-stretch: 1;
 
                         for route in root.routes: Rectangle {
-                            height: 32px;
+                            height: 38px;
 
                             HorizontalLayout {
                                 padding-left: 4px;
                                 padding-right: 4px;
                                 spacing: 4px;
                                 Rectangle { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; height: 100%; Text { width: 100%; height: 100%; text: route.destination; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; } }
+                                Rectangle { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; height: 100%; Text { width: 100%; height: 100%; text: route.gateway; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; } }
                                 Rectangle { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; height: 100%; Text { width: 100%; height: 100%; text: route.adapter; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; } }
                                 Text { width: 44px; text: route.metric; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; }
                                 Text { width: 44px; text: route.source; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; }
@@ -157,73 +154,102 @@ export component RouteManagerWindow inherits Window {
                     }
                 }
 
+            }
+
+            if (root.add_dialog_visible): Rectangle {
+                width: 100%;
+                height: 100%;
+                background: #00000066;
+
                 Rectangle {
-                    height: 40px;
+                    width: 384px;
+                    height: 310px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: 8px;
                     background: Theme.card-bg;
                     border-width: 1px;
                     border-color: Theme.menu-border;
-                    border-radius: 6px;
 
-                    HorizontalLayout {
-                        padding: 6px;
-                        spacing: 4px;
-                        LineEdit { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; height: 28px; text <=> root.add_destination; placeholder-text: "10.10.0.0/16"; }
+                    VerticalLayout {
+                        padding: 14px;
+                        spacing: 10px;
 
-                        Rectangle {
-                            min-width: 0px;
-                            preferred-width: 0px;
-                            horizontal-stretch: 1;
-                            height: 28px;
-                            border-radius: 4px;
-                            background: Theme.menu-bg;
-                            border-width: 1px;
-                            border-color: Theme.menu-border;
+                        HorizontalLayout {
+                            Text { text: "新增路由"; color: Theme.title; font-size: 11pt; font-weight: 800; vertical-alignment: center; }
+                            Rectangle { horizontal-stretch: 1; }
+                            IconButton { icon: "\u{eb99}"; clicked => { root.add_dialog_visible = false; root.add_adapter_menu_visible = false; } }
+                        }
 
-                            TouchArea {
-                                enabled: root.adapters.length > 0;
-                                mouse-cursor: root.adapters.length > 0 ? MouseCursor.pointer : MouseCursor.default;
-                                clicked => { root.add_adapter_menu_visible = !root.add_adapter_menu_visible; }
-                            }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { width: 48px; text: "类型"; color: Theme.text; font-size: 9pt; vertical-alignment: center; horizontal-alignment: right; }
+                            ComboBox { height: 28px; model: root.policy_store_names; current-index <=> root.add_policy_store_index; }
+                        }
 
-                            HorizontalLayout {
-                                padding-left: 8px;
-                                padding-right: 8px;
-                                Text {
-                                    text: root.add_adapter_name;
-                                    color: Theme.text;
-                                    font-size: 9pt;
-                                    vertical-alignment: center;
-                                    overflow: elide;
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { width: 48px; text: "目标"; color: Theme.text; font-size: 9pt; vertical-alignment: center; horizontal-alignment: right; }
+                            LineEdit { height: 28px; text <=> root.add_destination; placeholder-text: "10.10.0.0/16"; }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { width: 48px; text: "网卡"; color: Theme.text; font-size: 9pt; vertical-alignment: center; horizontal-alignment: right; }
+                            Rectangle {
+                                height: 28px;
+                                border-radius: 4px;
+                                background: Theme.menu-bg;
+                                border-width: 1px;
+                                border-color: Theme.menu-border;
+
+                                TouchArea {
+                                    enabled: root.adapter_names.length > 0;
+                                    mouse-cursor: root.adapter_names.length > 0 ? MouseCursor.pointer : MouseCursor.default;
+                                    clicked => { root.add_adapter_menu_visible = !root.add_adapter_menu_visible; }
                                 }
 
-                                Text {
-                                    width: 16px;
-                                    text: "\u{ea4e}";
-                                    color: Theme.text;
-                                    font-size: 14px;
-                                    font-family: "remixicon";
-                                    vertical-alignment: center;
-                                    horizontal-alignment: center;
+                                HorizontalLayout {
+                                    padding-left: 8px;
+                                    padding-right: 8px;
+                                    Text { text: root.add_adapter_name; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; }
+                                    Text { width: 16px; text: "\u{ea4e}"; color: Theme.text; font-size: 14px; font-family: "remixicon"; vertical-alignment: center; horizontal-alignment: center; }
                                 }
                             }
                         }
 
-                        LineEdit { width: 64px; height: 28px; text <=> root.add_metric; placeholder-text: "跃点"; }
-                        IconButton { icon: "\u{ea13}"; enabled: root.add_destination != "" && root.add_adapter_id != ""; clicked => { root.add_route(root.add_destination, root.add_adapter_id, root.add_metric); } }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { width: 48px; text: "网关"; color: Theme.text; font-size: 9pt; vertical-alignment: center; horizontal-alignment: right; }
+                            LineEdit { height: 28px; text <=> root.add_next_hop; placeholder-text: "192.168.0.1"; }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { width: 48px; text: "跃点"; color: Theme.text; font-size: 9pt; vertical-alignment: center; horizontal-alignment: right; }
+                            LineEdit { height: 28px; text <=> root.add_metric; placeholder-text: "可选"; }
+                        }
+
+                        Rectangle { vertical-stretch: 1; }
+
+                        HorizontalLayout {
+                            Rectangle { horizontal-stretch: 1; }
+                            Button { height: 28px; text: "保存"; primary: true; enabled: root.add_destination != "" && root.add_next_hop != ""; clicked => { root.add_route(root.add_destination, root.add_next_hop, root.add_policy_store, root.add_interface_index, root.add_metric); } }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
                     }
                 }
             }
 
             if (root.add_adapter_menu_visible): Rectangle {
-                width: 456px;
-                height: 180px;
-                x: 24px;
-                y: 492px;
+                width: 336px;
+                height: 150px;
+                x: 84px;
+                y: 356px;
                 border-radius: 6px;
                 background: Theme.menu-bg;
                 border-width: 1px;
                 border-color: Theme.menu-border;
-                drop-shadow-blur: 12px;
 
                 ListView {
                     width: 100%;
@@ -237,6 +263,9 @@ export component RouteManagerWindow inherits Window {
                             mouse-cursor: MouseCursor.pointer;
                             clicked => {
                                 root.add_adapter_index = index;
+                                if (index > 0) {
+                                    root.add_next_hop = root.selected_adapter_gateway;
+                                }
                                 root.add_adapter_menu_visible = false;
                             }
                         }

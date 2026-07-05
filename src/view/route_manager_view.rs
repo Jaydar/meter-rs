@@ -32,7 +32,7 @@ impl ViewTrait for RouteManagerView {
     }
 
     fn hide(&self) {
-        let _ = self.ui.hide();
+        self.ui.invoke_close_route_manager();
     }
 
     fn set_position(&self) {

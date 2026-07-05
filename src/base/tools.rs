@@ -1,5 +1,5 @@
 use std::os::windows::process::CommandExt;
-use std::{env, process::Command, thread};
+use std::{cell::RefCell, env, process::Command, thread};
 
 use anyhow::{Context, Result, bail};
 use i_slint_backend_winit::WinitWindowAccessor;
@@ -12,7 +12,7 @@ use windows::Win32::{
         Diagnostics::ToolHelp::{CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS},
         Power::{ES_CONTINUOUS, ES_DISPLAY_REQUIRED, ES_SYSTEM_REQUIRED, SetThreadExecutionState},
         ProcessStatus::EmptyWorkingSet,
-        Threading::{GetCurrentProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_QUOTA, SetProcessWorkingSetSize},
+        Threading::{CreateEventW, EVENT_MODIFY_STATE, GetCurrentProcess, INFINITE, OpenEventW, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_QUOTA, SYNCHRONIZATION_SYNCHRONIZE, SetEvent, SetProcessWorkingSetSize, WaitForSingleObject},
     },
     UI::{
         Shell::{IsUserAnAdmin, ShellExecuteW},
@@ -22,10 +22,16 @@ use windows::Win32::{
 use windows::core::{HSTRING, w};
 
 const _create_no_window: u32 = 0x0800_0000;
+const _synchronize: windows::Win32::System::Threading::PROCESS_ACCESS_RIGHTS = windows::Win32::System::Threading::PROCESS_ACCESS_RIGHTS(0x0010_0000);
+
+thread_local! {
+    static _admin_page_close_events: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+}
 
 pub struct NetworkAdapter {
     pub id: String,
     pub name: String,
+    pub interface_index: String,
     pub current_mac: String,
     pub mac: String,
     pub gateway: String,
@@ -247,32 +253,76 @@ pub fn is_admin() -> bool {
     unsafe { IsUserAnAdmin().as_bool() }
 }
 
-pub fn run_as_admin_open_mac_address() -> Result<()> {
+pub fn run_as_admin_open_page(page: &str) -> Result<()> {
     let exe = env::current_exe().context("get current exe failed")?;
     let file = HSTRING::from(exe.to_string_lossy().as_ref());
     let operation = HSTRING::from("runas");
-    let parameters = HSTRING::from("--open-mac-address");
+    let close_event = format!("Local\\MeterRsAdminPageClose_{}_{}", std::process::id(), uuid_tick());
+    let _ = unsafe { CreateEventW(None, true, false, &HSTRING::from(close_event.as_str())) }.context("create close event failed")?;
+    let parameters = HSTRING::from(format!("--page {} --close-event {}", quote_arg(page), quote_arg(&close_event)));
     let result = unsafe { ShellExecuteW(None, &operation, &file, &parameters, None, SW_SHOWNORMAL) };
     if result.0 as isize <= 32 {
         bail!("请求管理员权限失败");
     }
+    _admin_page_close_events.with(|events| events.borrow_mut().push(close_event));
     Ok(())
 }
 
-pub fn run_as_admin_open_route_manager() -> Result<()> {
-    let exe = env::current_exe().context("get current exe failed")?;
-    let file = HSTRING::from(exe.to_string_lossy().as_ref());
-    let operation = HSTRING::from("runas");
-    let parameters = HSTRING::from("--open-route-manager");
-    let result = unsafe { ShellExecuteW(None, &operation, &file, &parameters, None, SW_SHOWNORMAL) };
-    if result.0 as isize <= 32 {
-        bail!("请求管理员权限失败");
-    }
-    Ok(())
+fn uuid_tick() -> u128 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|time| time.as_nanos()).unwrap_or_default()
+}
+
+fn quote_arg(value: &str) -> String {
+    format!("\"{}\"", value.replace('"', "\\\""))
+}
+
+pub fn close_when_parent_exit(parent_pid: u32) {
+    let _ = thread::Builder::new().name("meter-rs-parent-watch".to_string()).spawn(move || {
+        let Ok(process) = (unsafe { OpenProcess(_synchronize, false, parent_pid) }) else {
+            return;
+        };
+        unsafe {
+            let _ = WaitForSingleObject(process, INFINITE);
+            let _ = CloseHandle(process);
+        }
+        let _ = slint::invoke_from_event_loop(|| {
+            let _ = slint::quit_event_loop();
+        });
+    });
+}
+
+pub fn close_when_event_set(close_event: String) {
+    let _ = thread::Builder::new().name("meter-rs-close-event-watch".to_string()).spawn(move || {
+        let Ok(event) = (unsafe { OpenEventW(SYNCHRONIZATION_SYNCHRONIZE, false, &HSTRING::from(close_event.as_str())) }) else {
+            return;
+        };
+        unsafe {
+            let _ = WaitForSingleObject(event, INFINITE);
+            let _ = CloseHandle(event);
+        }
+        let _ = slint::invoke_from_event_loop(|| {
+            let _ = slint::quit_event_loop();
+        });
+    });
+}
+
+pub fn close_pages() {
+    _admin_page_close_events.with(|events| {
+        for close_event in events.borrow().iter() {
+            let Ok(event) = (unsafe { OpenEventW(EVENT_MODIFY_STATE, false, &HSTRING::from(close_event.as_str())) }) else {
+                continue;
+            };
+            unsafe {
+                let _ = SetEvent(event);
+                let _ = CloseHandle(event);
+            }
+        }
+        events.borrow_mut().clear();
+    });
 }
 
 pub fn network_adapters() -> Result<Vec<NetworkAdapter>> {
-    let script = "Get-NetAdapter | Where-Object { $_.InterfaceDescription -notmatch 'Bluetooth' -and $_.Name -notmatch 'Bluetooth|蓝牙' } | Sort-Object Name | ForEach-Object { $id = \"$($_.InterfaceGuid)\".ToUpper(); $path = Get-ChildItem 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}' | Where-Object { (Get-ItemProperty $_.PSPath -Name NetCfgInstanceId -ErrorAction SilentlyContinue).NetCfgInstanceId -eq $id } | Select-Object -First 1; $origin = if ($null -ne $path) { (Get-ItemProperty $path.PSPath -Name NetworrkAddressOrigin -ErrorAction SilentlyContinue).NetworrkAddressOrigin } else { $null }; $config = Get-NetIPConfiguration -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue; $gateway = if ($null -ne $config -and $null -ne $config.IPv4DefaultGateway) { ($config.IPv4DefaultGateway | Select-Object -First 1).NextHop } else { '' }; if ([string]::IsNullOrWhiteSpace($origin)) { $origin = $_.MacAddress }; \"$id`t$($_.Name)`t$($_.MacAddress)`t$origin`t$gateway\" }";
+    let script = "Get-NetAdapter | Where-Object { $_.InterfaceDescription -notmatch 'Bluetooth' -and $_.Name -notmatch 'Bluetooth|蓝牙' } | Sort-Object Name | ForEach-Object { $id = \"$($_.InterfaceGuid)\".ToUpper(); $path = Get-ChildItem 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}' | Where-Object { (Get-ItemProperty $_.PSPath -Name NetCfgInstanceId -ErrorAction SilentlyContinue).NetCfgInstanceId -eq $id } | Select-Object -First 1; $origin = if ($null -ne $path) { (Get-ItemProperty $path.PSPath -Name NetworrkAddressOrigin -ErrorAction SilentlyContinue).NetworrkAddressOrigin } else { $null }; $config = Get-NetIPConfiguration -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue; $gateway = if ($null -ne $config -and $null -ne $config.IPv4DefaultGateway) { ($config.IPv4DefaultGateway | Select-Object -First 1).NextHop } else { '' }; if ([string]::IsNullOrWhiteSpace($origin)) { $origin = $_.MacAddress }; \"$id`t$($_.Name)`t$($_.InterfaceIndex)`t$($_.MacAddress)`t$origin`t$gateway\" }";
     let output = powershell_command(script).output().context("run Get-NetAdapter failed")?;
     if !output.status.success() {
         bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
@@ -281,7 +331,7 @@ pub fn network_adapters() -> Result<Vec<NetworkAdapter>> {
 }
 
 pub fn routes() -> Result<Vec<RouteEntry>> {
-    let script = "$adapters = @{}; Get-NetAdapter -IncludeHidden | ForEach-Object { $adapters[[int]$_.InterfaceIndex] = @{ Id = \"$($_.InterfaceGuid)\".ToUpper(); Name = $_.Name } }; $interfaceMetrics = @{}; Get-NetIPInterface -AddressFamily IPv4 -ErrorAction SilentlyContinue | ForEach-Object { $interfaceMetrics[[int]$_.InterfaceIndex] = [int]$_.InterfaceMetric }; @(@{ Name = '活动'; Store = 'ActiveStore' }, @{ Name = '永久'; Store = 'PersistentStore' }) | ForEach-Object { $source = $_.Name; Get-NetRoute -AddressFamily IPv4 -PolicyStore $_.Store -ErrorAction SilentlyContinue | Sort-Object DestinationPrefix, InterfaceIndex, RouteMetric | ForEach-Object { $route = $_; $adapter = $adapters[[int]$route.InterfaceIndex]; $id = if ($null -ne $adapter) { $adapter.Id } else { '' }; $name = if ($null -ne $adapter) { $adapter.Name } else { \"接口 $($route.InterfaceIndex)\" }; $gateway = if ($route.NextHop -eq '0.0.0.0') { '在链路上' } else { $route.NextHop }; $metric = [int]$route.RouteMetric + [int]$interfaceMetrics[[int]$route.InterfaceIndex]; \"$($route.DestinationPrefix)`t$id`t$($route.InterfaceIndex)`t$name`t$gateway`t$metric`t$source\" } }";
+    let script = "$adapters = @{}; Get-NetAdapter -IncludeHidden | ForEach-Object { $adapters[[int]$_.InterfaceIndex] = @{ Id = \"$($_.InterfaceGuid)\".ToUpper(); Name = $_.Name } }; @(@{ Name = '活动'; Store = 'ActiveStore' }, @{ Name = '永久'; Store = 'PersistentStore' }) | ForEach-Object { $source = $_.Name; Get-NetRoute -AddressFamily IPv4 -PolicyStore $_.Store -ErrorAction SilentlyContinue | Sort-Object DestinationPrefix, InterfaceIndex, RouteMetric | ForEach-Object { $route = $_; $index = [int]$route.InterfaceIndex; $adapter = $adapters[$index]; $id = if ($null -ne $adapter) { $adapter.Id } else { '' }; $name = if ($index -eq 0) { 'None' } elseif ($null -ne $adapter) { \"$($adapter.Name)($index)\" } else { \"接口 $index\" }; $gateway = if ($route.NextHop -eq '0.0.0.0') { '在链路上' } else { $route.NextHop }; \"$($route.DestinationPrefix)`t$id`t$index`t$name`t$gateway`t$($route.RouteMetric)`t$source\" } }";
     let output = powershell_command(script).output().context("run Get-NetRoute failed")?;
     if !output.status.success() {
         bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
@@ -289,12 +339,15 @@ pub fn routes() -> Result<Vec<RouteEntry>> {
     Ok(String::from_utf8_lossy(&output.stdout).lines().filter_map(parse_route_entry).collect())
 }
 
-pub fn add_route(destination: &str, adapter_id: &str, metric: &str) -> Result<()> {
+pub fn add_route(destination: &str, next_hop: &str, policy_store: &str, interface_index: &str, metric: &str) -> Result<()> {
     let destination = normalize_route_destination(destination)?;
+    let next_hop = normalize_next_hop(next_hop)?;
+    let policy_store = normalize_policy_store(policy_store)?;
+    let interface_index = normalize_interface_index(interface_index)?;
     let metric = normalize_route_metric(metric)?;
-    let adapter_id = ps_quote(adapter_id);
+    let interface_arg = interface_index.map(|interface_index| format!(" -InterfaceIndex {interface_index}")).unwrap_or_default();
     let metric_arg = metric.map(|metric| format!(" -RouteMetric {metric}")).unwrap_or_default();
-    let script = format!("$destination = '{}'; $id = '{}'; $adapter = Get-NetAdapter | Where-Object {{ $_.InterfaceGuid -eq $id }} | Select-Object -First 1; if ($null -eq $adapter) {{ throw '未找到网卡' }}; $config = Get-NetIPConfiguration -InterfaceIndex $adapter.InterfaceIndex -ErrorAction SilentlyContinue; $gateway = if ($null -ne $config -and $null -ne $config.IPv4DefaultGateway) {{ ($config.IPv4DefaultGateway | Select-Object -First 1).NextHop }} else {{ $null }}; if ([string]::IsNullOrWhiteSpace($gateway)) {{ throw '未找到网关' }}; New-NetRoute -DestinationPrefix $destination -InterfaceIndex $adapter.InterfaceIndex -NextHop $gateway -PolicyStore PersistentStore{} -ErrorAction Stop | Out-Null; New-NetRoute -DestinationPrefix $destination -InterfaceIndex $adapter.InterfaceIndex -NextHop $gateway -PolicyStore ActiveStore{} -ErrorAction SilentlyContinue | Out-Null", destination, adapter_id, metric_arg, metric_arg);
+    let script = format!("New-NetRoute -DestinationPrefix '{}' -NextHop '{}' -PolicyStore {}{}{} -ErrorAction Stop | Out-Null", destination, next_hop, policy_store, interface_arg, metric_arg);
     let output = powershell_command(&script).output().context("run add route failed")?;
     if !output.status.success() {
         bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
@@ -363,10 +416,10 @@ fn powershell_command(script: &str) -> Command {
 
 fn parse_network_adapter(line: &str) -> Option<NetworkAdapter> {
     let parts = line.split('\t').collect::<Vec<_>>();
-    if parts.len() < 4 || parts[0].trim().is_empty() || parts[1].trim().is_empty() {
+    if parts.len() < 5 || parts[0].trim().is_empty() || parts[1].trim().is_empty() {
         return None;
     }
-    Some(NetworkAdapter { id: parts[0].trim().to_string(), name: parts[1].trim().to_string(), current_mac: format_mac_address(parts[2].trim()).unwrap_or_else(|_| parts[2].trim().to_string()), mac: format_mac_address(parts[3].trim()).unwrap_or_else(|_| parts[3].trim().to_string()), gateway: parts.get(4).map(|part| part.trim().to_string()).unwrap_or_default() })
+    Some(NetworkAdapter { id: parts[0].trim().to_string(), name: parts[1].trim().to_string(), interface_index: parts[2].trim().to_string(), current_mac: format_mac_address(parts[3].trim()).unwrap_or_else(|_| parts[3].trim().to_string()), mac: format_mac_address(parts[4].trim()).unwrap_or_else(|_| parts[4].trim().to_string()), gateway: parts.get(5).map(|part| part.trim().to_string()).unwrap_or_default() })
 }
 
 fn parse_route_entry(line: &str) -> Option<RouteEntry> {
@@ -397,6 +450,31 @@ fn normalize_route_metric(metric: &str) -> Result<Option<u32>> {
     }
     let metric = value.parse::<u32>().context("跃点格式错误")?;
     Ok(Some(metric))
+}
+
+fn normalize_next_hop(next_hop: &str) -> Result<String> {
+    let value = next_hop.trim();
+    if value.parse::<std::net::Ipv4Addr>().is_err() {
+        bail!("网关格式错误");
+    }
+    Ok(value.to_string())
+}
+
+fn normalize_policy_store(policy_store: &str) -> Result<&'static str> {
+    match policy_store.trim() {
+        "ActiveStore" => Ok("ActiveStore"),
+        "PersistentStore" => Ok("PersistentStore"),
+        _ => bail!("路由类型错误"),
+    }
+}
+
+fn normalize_interface_index(interface_index: &str) -> Result<Option<u32>> {
+    let value = interface_index.trim();
+    if value.is_empty() {
+        return Ok(None);
+    }
+    let index = value.parse::<u32>().context("接口编号格式错误")?;
+    Ok(Some(index))
 }
 
 fn normalize_mac_address(mac: &str) -> Result<String> {

@@ -34,6 +34,10 @@ impl ViewTrait for MacAddressView {
         let _ = self.ui.hide();
     }
 
+    fn close(&self) {
+        self.ui.invoke_close_mac_address();
+    }
+
     fn set_position(&self) {
         let hwnd = _main_hwnd.load(Ordering::Relaxed);
         let hwnd = if hwnd == 0 { tools::get_hwnd_by_window_handle(&self.ui).map(|hwnd| hwnd.0 as usize).unwrap_or(0) } else { hwnd };
@@ -110,6 +114,8 @@ impl MacAddressView {
                     .map(|adapter| ui::NetworkAdapterEntry {
                         id: adapter.id.clone().into(),
                         name: adapter.name.clone().into(),
+                        interface_index: adapter.interface_index.clone().into(),
+                        gateway: adapter.gateway.clone().into(),
                         current_mac: adapter.current_mac.clone().into(),
                         mac: adapter.mac.clone().into(),
                     })
