@@ -19,6 +19,16 @@ export struct NetworkAdapterEntry {
     mac: string,
 }
 
+export struct RouteEntry {
+    destination: string,
+    adapter_id: string,
+    interface_index: string,
+    adapter: string,
+    gateway: string,
+    metric: string,
+    source: string,
+}
+
 export global RuntimeStore {
     in-out property <length> taskbar_height: 40px;
     in-out property <float> cpu_usage: 0;

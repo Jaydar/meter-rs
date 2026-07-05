@@ -9,6 +9,9 @@ pub use about_view::AboutView;
 mod mac_address_view;
 pub use mac_address_view::MacAddressView;
 
+mod route_manager_view;
+pub use route_manager_view::RouteManagerView;
+
 pub trait ViewTrait {
     fn new() -> Self where Self: Sized;
     fn show(&self, extra: Option<&dyn Any>) -> anyhow::Result<()>;

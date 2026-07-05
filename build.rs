@@ -5,7 +5,8 @@ fn main() {
 
     #[cfg(windows)]
     {
-        if std::env::var_os("RC_PATH").is_none() && find_rc_path().is_none() {
+        if std::env::var("PROFILE").ok().as_deref() != Some("release") {
+        } else if std::env::var_os("RC_PATH").is_none() && find_rc_path().is_none() {
             println!("cargo:warning=rc.exe not found, skip Windows resource");
         } else {
             winresource::WindowsResource::new().compile().unwrap();

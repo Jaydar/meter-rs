@@ -24,6 +24,7 @@ pub static _main_hwnd: AtomicUsize = AtomicUsize::new(0);
 
 fn run_app() -> Result<()> {
     let open_mac_address = std::env::args().any(|arg| arg == "--open-mac-address");
+    let open_route_manager = std::env::args().any(|arg| arg == "--open-route-manager");
     hook::install_win32_hook(move |_n_code: i32, w_param: WPARAM, _l_param: LPARAM| {
         // 获取窗口句柄
         let hwnd = HWND(w_param.0 as _);
@@ -36,7 +37,7 @@ fn run_app() -> Result<()> {
             let hwnd = hwnd.0 as usize;
             hook::uninstall_win32_hook();
             _main_hwnd.store(hwnd, Ordering::Release);
-            if !open_mac_address {
+            if !open_mac_address && !open_route_manager {
                 tray::setup(hwnd);
             }
 
@@ -67,10 +68,14 @@ fn run_app() -> Result<()> {
         }
     });
     view::AppView::init_backend()?;
-    if open_mac_address {
+    if open_mac_address || open_route_manager {
         let app = ui::use_view::<view::AppView>();
         base::config::load(&app.ui);
-        ui::use_view::<view::MacAddressView>().show(None)?;
+        if open_mac_address {
+            ui::use_view::<view::MacAddressView>().show(None)?;
+        } else {
+            ui::use_view::<view::RouteManagerView>().show(None)?;
+        }
         slint::run_event_loop()?;
         return Ok(());
     }

@@ -28,6 +28,17 @@ pub struct NetworkAdapter {
     pub name: String,
     pub current_mac: String,
     pub mac: String,
+    pub gateway: String,
+}
+
+pub struct RouteEntry {
+    pub destination: String,
+    pub adapter_id: String,
+    pub interface_index: String,
+    pub adapter: String,
+    pub gateway: String,
+    pub metric: String,
+    pub source: String,
 }
 
 /// 从 Slint 窗口句柄中提取原生 HWND。
@@ -248,13 +259,59 @@ pub fn run_as_admin_open_mac_address() -> Result<()> {
     Ok(())
 }
 
+pub fn run_as_admin_open_route_manager() -> Result<()> {
+    let exe = env::current_exe().context("get current exe failed")?;
+    let file = HSTRING::from(exe.to_string_lossy().as_ref());
+    let operation = HSTRING::from("runas");
+    let parameters = HSTRING::from("--open-route-manager");
+    let result = unsafe { ShellExecuteW(None, &operation, &file, &parameters, None, SW_SHOWNORMAL) };
+    if result.0 as isize <= 32 {
+        bail!("请求管理员权限失败");
+    }
+    Ok(())
+}
+
 pub fn network_adapters() -> Result<Vec<NetworkAdapter>> {
-    let script = "Get-NetAdapter | Where-Object { $_.InterfaceDescription -notmatch 'Bluetooth' -and $_.Name -notmatch 'Bluetooth|蓝牙' } | Sort-Object Name | ForEach-Object { $id = \"$($_.InterfaceGuid)\".ToUpper(); $path = Get-ChildItem 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}' | Where-Object { (Get-ItemProperty $_.PSPath -Name NetCfgInstanceId -ErrorAction SilentlyContinue).NetCfgInstanceId -eq $id } | Select-Object -First 1; $origin = if ($null -ne $path) { (Get-ItemProperty $path.PSPath -Name NetworrkAddressOrigin -ErrorAction SilentlyContinue).NetworrkAddressOrigin } else { $null }; if ([string]::IsNullOrWhiteSpace($origin)) { $origin = $_.MacAddress }; \"$id`t$($_.Name)`t$($_.MacAddress)`t$origin\" }";
+    let script = "Get-NetAdapter | Where-Object { $_.InterfaceDescription -notmatch 'Bluetooth' -and $_.Name -notmatch 'Bluetooth|蓝牙' } | Sort-Object Name | ForEach-Object { $id = \"$($_.InterfaceGuid)\".ToUpper(); $path = Get-ChildItem 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}' | Where-Object { (Get-ItemProperty $_.PSPath -Name NetCfgInstanceId -ErrorAction SilentlyContinue).NetCfgInstanceId -eq $id } | Select-Object -First 1; $origin = if ($null -ne $path) { (Get-ItemProperty $path.PSPath -Name NetworrkAddressOrigin -ErrorAction SilentlyContinue).NetworrkAddressOrigin } else { $null }; $config = Get-NetIPConfiguration -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue; $gateway = if ($null -ne $config -and $null -ne $config.IPv4DefaultGateway) { ($config.IPv4DefaultGateway | Select-Object -First 1).NextHop } else { '' }; if ([string]::IsNullOrWhiteSpace($origin)) { $origin = $_.MacAddress }; \"$id`t$($_.Name)`t$($_.MacAddress)`t$origin`t$gateway\" }";
     let output = powershell_command(script).output().context("run Get-NetAdapter failed")?;
     if !output.status.success() {
         bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
     }
     Ok(String::from_utf8_lossy(&output.stdout).lines().filter_map(parse_network_adapter).collect())
+}
+
+pub fn routes() -> Result<Vec<RouteEntry>> {
+    let script = "$adapters = @{}; Get-NetAdapter -IncludeHidden | ForEach-Object { $adapters[[int]$_.InterfaceIndex] = @{ Id = \"$($_.InterfaceGuid)\".ToUpper(); Name = $_.Name } }; $interfaceMetrics = @{}; Get-NetIPInterface -AddressFamily IPv4 -ErrorAction SilentlyContinue | ForEach-Object { $interfaceMetrics[[int]$_.InterfaceIndex] = [int]$_.InterfaceMetric }; @(@{ Name = '活动'; Store = 'ActiveStore' }, @{ Name = '永久'; Store = 'PersistentStore' }) | ForEach-Object { $source = $_.Name; Get-NetRoute -AddressFamily IPv4 -PolicyStore $_.Store -ErrorAction SilentlyContinue | Sort-Object DestinationPrefix, InterfaceIndex, RouteMetric | ForEach-Object { $route = $_; $adapter = $adapters[[int]$route.InterfaceIndex]; $id = if ($null -ne $adapter) { $adapter.Id } else { '' }; $name = if ($null -ne $adapter) { $adapter.Name } else { \"接口 $($route.InterfaceIndex)\" }; $gateway = if ($route.NextHop -eq '0.0.0.0') { '在链路上' } else { $route.NextHop }; $metric = [int]$route.RouteMetric + [int]$interfaceMetrics[[int]$route.InterfaceIndex]; \"$($route.DestinationPrefix)`t$id`t$($route.InterfaceIndex)`t$name`t$gateway`t$metric`t$source\" } }";
+    let output = powershell_command(script).output().context("run Get-NetRoute failed")?;
+    if !output.status.success() {
+        bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).lines().filter_map(parse_route_entry).collect())
+}
+
+pub fn add_route(destination: &str, adapter_id: &str, metric: &str) -> Result<()> {
+    let destination = normalize_route_destination(destination)?;
+    let metric = normalize_route_metric(metric)?;
+    let adapter_id = ps_quote(adapter_id);
+    let metric_arg = metric.map(|metric| format!(" -RouteMetric {metric}")).unwrap_or_default();
+    let script = format!("$destination = '{}'; $id = '{}'; $adapter = Get-NetAdapter | Where-Object {{ $_.InterfaceGuid -eq $id }} | Select-Object -First 1; if ($null -eq $adapter) {{ throw '未找到网卡' }}; $config = Get-NetIPConfiguration -InterfaceIndex $adapter.InterfaceIndex -ErrorAction SilentlyContinue; $gateway = if ($null -ne $config -and $null -ne $config.IPv4DefaultGateway) {{ ($config.IPv4DefaultGateway | Select-Object -First 1).NextHop }} else {{ $null }}; if ([string]::IsNullOrWhiteSpace($gateway)) {{ throw '未找到网关' }}; New-NetRoute -DestinationPrefix $destination -InterfaceIndex $adapter.InterfaceIndex -NextHop $gateway -PolicyStore PersistentStore{} -ErrorAction Stop | Out-Null; New-NetRoute -DestinationPrefix $destination -InterfaceIndex $adapter.InterfaceIndex -NextHop $gateway -PolicyStore ActiveStore{} -ErrorAction SilentlyContinue | Out-Null", destination, adapter_id, metric_arg, metric_arg);
+    let output = powershell_command(&script).output().context("run add route failed")?;
+    if !output.status.success() {
+        bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+    }
+    Ok(())
+}
+
+pub fn delete_route(destination: &str, interface_index: &str, source: &str) -> Result<()> {
+    let destination = ps_quote(destination);
+    let interface_index = ps_quote(interface_index);
+    let source = ps_quote(source);
+    let script = format!("$destination = '{}'; $index = '{}'; $source = '{}'; if ($index -eq '') {{ throw '未找到接口' }}; $store = if ($source -eq '永久') {{ 'PersistentStore' }} else {{ 'ActiveStore' }}; Get-NetRoute -DestinationPrefix $destination -InterfaceIndex ([int]$index) -PolicyStore $store -ErrorAction SilentlyContinue | Remove-NetRoute -Confirm:$false", destination, interface_index, source);
+    let output = powershell_command(&script).output().context("run delete route failed")?;
+    if !output.status.success() {
+        bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+    }
+    Ok(())
 }
 
 pub fn set_mac_address(adapter_id: &str, original_mac: &str, new_mac: &str) -> Result<()> {
@@ -309,7 +366,37 @@ fn parse_network_adapter(line: &str) -> Option<NetworkAdapter> {
     if parts.len() < 4 || parts[0].trim().is_empty() || parts[1].trim().is_empty() {
         return None;
     }
-    Some(NetworkAdapter { id: parts[0].trim().to_string(), name: parts[1].trim().to_string(), current_mac: format_mac_address(parts[2].trim()).unwrap_or_else(|_| parts[2].trim().to_string()), mac: format_mac_address(parts[3].trim()).unwrap_or_else(|_| parts[3].trim().to_string()) })
+    Some(NetworkAdapter { id: parts[0].trim().to_string(), name: parts[1].trim().to_string(), current_mac: format_mac_address(parts[2].trim()).unwrap_or_else(|_| parts[2].trim().to_string()), mac: format_mac_address(parts[3].trim()).unwrap_or_else(|_| parts[3].trim().to_string()), gateway: parts.get(4).map(|part| part.trim().to_string()).unwrap_or_default() })
+}
+
+fn parse_route_entry(line: &str) -> Option<RouteEntry> {
+    let parts = line.split('\t').collect::<Vec<_>>();
+    if parts.len() < 7 || parts[0].trim().is_empty() || parts[2].trim().is_empty() {
+        return None;
+    }
+    Some(RouteEntry { destination: parts[0].trim().to_string(), adapter_id: parts[1].trim().to_string(), interface_index: parts[2].trim().to_string(), adapter: parts[3].trim().to_string(), gateway: parts[4].trim().to_string(), metric: parts[5].trim().to_string(), source: parts[6].trim().to_string() })
+}
+
+fn normalize_route_destination(destination: &str) -> Result<String> {
+    let value = destination.trim();
+    let parts = value.split('/').collect::<Vec<_>>();
+    if parts.len() != 2 || parts[0].parse::<std::net::Ipv4Addr>().is_err() {
+        bail!("路由格式错误");
+    }
+    let prefix = parts[1].parse::<u8>().context("路由掩码错误")?;
+    if prefix > 32 {
+        bail!("路由掩码错误");
+    }
+    Ok(format!("{}/{}", parts[0], prefix))
+}
+
+fn normalize_route_metric(metric: &str) -> Result<Option<u32>> {
+    let value = metric.trim();
+    if value.is_empty() {
+        return Ok(None);
+    }
+    let metric = value.parse::<u32>().context("跃点格式错误")?;
+    Ok(Some(metric))
 }
 
 fn normalize_mac_address(mac: &str) -> Result<String> {
