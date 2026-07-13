@@ -32,7 +32,7 @@ impl ViewTrait for RouteManagerView {
     }
 
     fn hide(&self) {
-        self.ui.invoke_close_route_manager();
+        let _ = self.ui.hide();
     }
 
     fn set_position(&self) {
@@ -65,11 +65,12 @@ impl ViewTrait for RouteManagerView {
             let route_view = ui::use_view::<crate::view::RouteManagerView>();
             route_view.hide();
         });
-        self.ui.on_add_route(|destination, adapter_id, metric| {
+        self.ui.on_add_route(|destination, next_hop, policy_store, interface_index, metric| {
             let route_view = ui::use_view::<crate::view::RouteManagerView>();
-            match tools::add_route(destination.as_str(), adapter_id.as_str(), metric.as_str()) {
+            match tools::add_route(destination.as_str(), next_hop.as_str(), policy_store.as_str(), interface_index.as_str(), metric.as_str()) {
                 Ok(()) => {
-                    route_view.ui.set_status_text("".into());
+                    route_view.ui.set_add_dialog_visible(false);
+                    route_view.ui.set_status_text("新增成功".into());
                     route_view.ui.set_add_destination("".into());
                     route_view.ui.set_add_metric("".into());
                 }
@@ -110,6 +111,8 @@ impl RouteManagerView {
                     .map(|adapter| ui::NetworkAdapterEntry {
                         id: adapter.id.clone().into(),
                         name: adapter.name.clone().into(),
+                        interface_index: adapter.interface_index.clone().into(),
+                        gateway: adapter.gateway.clone().into(),
                         current_mac: adapter.current_mac.clone().into(),
                         mac: adapter.mac.clone().into(),
                     })
@@ -118,6 +121,7 @@ impl RouteManagerView {
                 self.ui.set_adapters(ModelRc::from(entries.as_slice()));
                 self.ui.set_adapter_names(ModelRc::from(names.as_slice()));
                 self.ui.set_add_adapter_index(0);
+                self.ui.set_add_next_hop(entries.first().map(|entry| entry.gateway.clone()).unwrap_or_default());
                 self.ui.set_status_text(if entries.is_empty() { "没有找到可用网卡".into() } else { "".into() });
             }
             Err(err) => {

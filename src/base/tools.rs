@@ -345,10 +345,26 @@ pub fn add_route(destination: &str, next_hop: &str, policy_store: &str, interfac
     let policy_store = normalize_policy_store(policy_store)?;
     let interface_index = normalize_interface_index(interface_index)?;
     let metric = normalize_route_metric(metric)?;
-    let interface_arg = interface_index.map(|interface_index| format!(" -InterfaceIndex {interface_index}")).unwrap_or_default();
-    let metric_arg = metric.map(|metric| format!(" -RouteMetric {metric}")).unwrap_or_default();
-    let script = format!("New-NetRoute -DestinationPrefix '{}' -NextHop '{}' -PolicyStore {}{}{} -ErrorAction Stop | Out-Null", destination, next_hop, policy_store, interface_arg, metric_arg);
-    let output = powershell_command(&script).output().context("run add route failed")?;
+    let output = if policy_store == "PersistentStore" {
+        let (address, prefix) = destination.split_once('/').unwrap();
+        let mask = std::net::Ipv4Addr::from(u32::MAX.checked_shl(32 - prefix.parse::<u32>().unwrap()).unwrap_or(0)).to_string();
+        let metric = metric.unwrap_or(1).to_string();
+        let interface_arg = interface_index.map(|interface_index| format!(" if {interface_index}")).unwrap_or_default();
+        tracing::info!("add route command: route -p add {address} mask {mask} {next_hop} metric {metric}{interface_arg}");
+        let mut command = Command::new("route");
+        command.creation_flags(_create_no_window);
+        command.args(["-p", "add", address, "mask", mask.as_str(), next_hop.as_str(), "metric", metric.as_str()]);
+        if let Some(interface_index) = interface_index {
+            command.args(["if", &interface_index.to_string()]);
+        }
+        command.output().context("run add persistent route failed")?
+    } else {
+        let interface_arg = interface_index.map(|interface_index| format!(" -InterfaceIndex {interface_index}")).unwrap_or_default();
+        let metric_arg = metric.map(|metric| format!(" -RouteMetric {metric}")).unwrap_or_default();
+        let script = format!("New-NetRoute -DestinationPrefix '{}' -NextHop '{}' -PolicyStore {}{}{} -ErrorAction Stop | Out-Null", destination, next_hop, policy_store, interface_arg, metric_arg);
+        tracing::info!("add route command: {script}");
+        powershell_command(&script).output().context("run add route failed")?
+    };
     if !output.status.success() {
         bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
     }
