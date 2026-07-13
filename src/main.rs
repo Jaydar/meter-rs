@@ -22,8 +22,20 @@ use crate::view::ViewTrait;
 
 pub static _main_hwnd: AtomicUsize = AtomicUsize::new(0);
 
+struct AdminPage {
+    name: &'static str,
+    show: fn() -> Result<()>,
+}
+
+const _admin_pages: &[AdminPage] = &[
+    AdminPage { name: "mac", show: || ui::use_view::<view::MacAddressView>().show(None) },
+    AdminPage { name: "route", show: || ui::use_view::<view::RouteManagerView>().show(None) },
+];
+
 fn run_app() -> Result<()> {
-    let open_mac_address = std::env::args().any(|arg| arg == "--open-mac-address");
+    let admin_page = current_admin_page();
+    let parent_pid = parent_pid_arg();
+    let close_event = arg_value("--close-event");
     hook::install_win32_hook(move |_n_code: i32, w_param: WPARAM, _l_param: LPARAM| {
         // 获取窗口句柄
         let hwnd = HWND(w_param.0 as _);
@@ -36,7 +48,7 @@ fn run_app() -> Result<()> {
             let hwnd = hwnd.0 as usize;
             hook::uninstall_win32_hook();
             _main_hwnd.store(hwnd, Ordering::Release);
-            if !open_mac_address {
+            if admin_page.is_none() {
                 tray::setup(hwnd);
             }
 
@@ -67,16 +79,43 @@ fn run_app() -> Result<()> {
         }
     });
     view::AppView::init_backend()?;
-    if open_mac_address {
+    if let Some(admin_page) = admin_page {
+        if let Some(parent_pid) = parent_pid {
+            tools::close_when_parent_exit(parent_pid);
+        }
+        if let Some(close_event) = close_event {
+            tools::close_when_event_set(close_event);
+        }
         let app = ui::use_view::<view::AppView>();
         base::config::load(&app.ui);
-        ui::use_view::<view::MacAddressView>().show(None)?;
+        (admin_page.show)()?;
         slint::run_event_loop()?;
         return Ok(());
     }
     let app = ui::use_view::<view::AppView>();
-    app.show(None)?;
+    let result = app.show(None);
+    tools::close_pages();
+    result?;
     Ok(())
+}
+
+fn current_admin_page() -> Option<&'static AdminPage> {
+    let page_name = arg_value("--page")?;
+    _admin_pages.iter().find(|page| page.name == page_name)
+}
+
+fn parent_pid_arg() -> Option<u32> {
+    arg_value("--parent-pid")?.parse().ok()
+}
+
+fn arg_value(name: &str) -> Option<String> {
+    let mut args = std::env::args();
+    while let Some(arg) = args.next() {
+        if arg == name {
+            return args.next();
+        }
+    }
+    None
 }
 
 fn main() -> Result<()> {
@@ -85,6 +124,7 @@ fn main() -> Result<()> {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(run_app)) {
         Ok(Ok(())) => Ok(()),
         Ok(Err(_)) | Err(_) => {
+            tools::close_pages();
             if std::env::var("SLINT_BACKEND").ok().as_deref() == Some("winit-software") {
                 return Ok(());
             }

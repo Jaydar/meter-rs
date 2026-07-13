@@ -1,0 +1,364 @@
+import "../assets/remixicon.ttf";
+import { Button, ComboBox, LineEdit, ListView } from "std-widgets.slint";
+import { NetworkAdapterEntry, RouteEntry } from "../runtime_store.slint";
+import { Theme } from "../theme.slint";
+
+component IconButton inherits Rectangle {
+    in property <string> icon;
+    in property <bool> enabled: true;
+    callback clicked();
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    background: self.enabled && icon_ta.has-hover ? Theme.menu-hover-bg : transparent;
+    opacity: self.enabled ? 1 : 0.45;
+
+    icon_ta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.clicked(); }
+    }
+
+    Text {
+        width: 100%;
+        height: 100%;
+        text: root.icon;
+        color: icon_ta.has-hover ? Theme.menu-hover-fg : Theme.text;
+        font-size: 16px;
+        font-family: "remixicon";
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+}
+
+export component RouteManagerWindow inherits Window {
+    width: 504px;
+    height: 756px;
+    background: transparent;
+    no-frame: true;
+    always-on-top: true;
+    default-font-size: 10pt;
+
+    in-out property <[RouteEntry]> routes: [];
+    in-out property <[NetworkAdapterEntry]> adapters: [];
+    in-out property <[string]> adapter_names: [];
+    in-out property <int> add_adapter_index: 0;
+    in-out property <bool> add_dialog_visible: false;
+    in-out property <bool> add_adapter_menu_visible: false;
+    in-out property <bool> delete_dialog_visible: false;
+    in-out property <string> add_destination;
+    in-out property <string> add_next_hop;
+    in-out property <int> add_policy_store_index: 1;
+    in-out property <string> add_metric;
+    in-out property <string> status_text;
+    in-out property <string> delete_destination;
+    in-out property <string> delete_interface_index;
+    in-out property <string> delete_source;
+    out property <[string]> policy_store_names: ["活动", "永久"];
+    out property <string> add_policy_store: root.add_policy_store_index == 0 ? "ActiveStore" : "PersistentStore";
+    out property <string> add_interface_index: root.add_adapter_index >= 0 && root.add_adapter_index < root.adapters.length ? root.adapters[root.add_adapter_index].interface_index : "";
+    out property <string> selected_adapter_gateway: root.add_adapter_index >= 0 && root.add_adapter_index < root.adapters.length ? root.adapters[root.add_adapter_index].gateway : "";
+    out property <string> add_adapter_name: root.adapter_names.length > 0 && root.add_adapter_index >= 0 && root.add_adapter_index < root.adapter_names.length ? root.adapter_names[root.add_adapter_index] : "";
+
+    callback win_move(length, length);
+    callback close_route_manager();
+    callback add_route(string, string, string, string, string);
+    callback delete_route(string, string, string);
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            background: Theme.window-bg;
+            border-width: 1px;
+            border-color: Theme.menu-border;
+
+            VerticalLayout {
+                padding: 12px;
+                spacing: 8px;
+
+                Rectangle {
+                    height: 28px;
+
+                    title_ta := TouchArea {
+                        width: 100%;
+                        height: 100%;
+                        mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
+
+                        moved => {
+                            root.win_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
+                        }
+                    }
+
+                    HorizontalLayout {
+                        Text {
+                            text: "路由管理";
+                            color: Theme.title;
+                            font-size: 12pt;
+                            font-weight: 800;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle { horizontal-stretch: 1; }
+
+                        IconButton { icon: "\u{ea13}"; clicked => { root.add_dialog_visible = true; } }
+                        IconButton { icon: "\u{eb99}"; clicked => { root.close_route_manager(); } }
+                    }
+                }
+
+                Rectangle {
+                    height: 1px;
+                    background: Theme.menu-border;
+                }
+
+                VerticalLayout {
+                    vertical-stretch: 1;
+                    spacing: 4px;
+
+                    Rectangle {
+                        height: 22px;
+
+                        HorizontalLayout {
+                            padding-left: 4px;
+                            padding-right: 4px;
+                            spacing: 4px;
+                            Text { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; text: "目标"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
+                            Text { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; text: "网关"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
+                            Text { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; text: "接口"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
+                            Text { width: 44px; text: "跃点"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
+                            Text { width: 44px; text: "来源"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
+                            Text { width: 28px; text: "操作"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
+                        }
+                    }
+
+                    ListView {
+                        vertical-stretch: 1;
+
+                        for route in root.routes: Rectangle {
+                            height: 38px;
+
+                            HorizontalLayout {
+                                padding-left: 4px;
+                                padding-right: 4px;
+                                spacing: 4px;
+                                Rectangle { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; height: 100%; Text { width: 100%; height: 100%; text: route.destination; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; } }
+                                Rectangle { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; height: 100%; Text { width: 100%; height: 100%; text: route.gateway; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; } }
+                                Rectangle { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; height: 100%; Text { width: 100%; height: 100%; text: route.adapter; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; } }
+                                Text { width: 44px; text: route.metric; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; }
+                                Text { width: 44px; text: route.source; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; }
+                                Rectangle { width: 28px; height: 100%; IconButton { y: (parent.height - self.height) / 2; icon: "\u{eb99}"; clicked => { root.delete_destination = route.destination; root.delete_interface_index = route.interface_index; root.delete_source = route.source; root.delete_dialog_visible = true; } } }
+                            }
+
+                            Rectangle { width: 100%; height: 1px; y: parent.height - 1px; background: Theme.menu-border; }
+                        }
+                    }
+                }
+
+            }
+
+            if (root.delete_dialog_visible): Rectangle {
+                width: 100%;
+                height: 100%;
+                background: #00000066;
+
+                Rectangle {
+                    width: 300px;
+                    height: 128px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: 8px;
+                    background: Theme.card-bg;
+                    border-width: 1px;
+                    border-color: Theme.menu-border;
+
+                    VerticalLayout {
+                        padding: 14px;
+                        spacing: 10px;
+
+                        Text { text: "确认删除路由 " + root.delete_destination + " 吗？"; color: Theme.text; font-size: 10pt; wrap: word-wrap; }
+                        Rectangle { vertical-stretch: 1; background: transparent; }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Rectangle { horizontal-stretch: 1; background: transparent; }
+                            Button { height: 26px; text: "取消"; clicked => { root.delete_dialog_visible = false; } }
+                            Button { height: 26px; text: "删除"; primary: true; clicked => { root.delete_dialog_visible = false; root.delete_route(root.delete_destination, root.delete_interface_index, root.delete_source); } }
+                        }
+                    }
+                }
+            }
+
+            if (root.add_dialog_visible): Rectangle {
+                width: 100%;
+                height: 100%;
+                background: #00000066;
+
+                Rectangle {
+                    width: 384px;
+                    height: 310px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: 8px;
+                    background: Theme.card-bg;
+                    border-width: 1px;
+                    border-color: Theme.menu-border;
+
+                    VerticalLayout {
+                        padding: 14px;
+                        spacing: 10px;
+
+                        HorizontalLayout {
+                            Text { text: "新增路由"; color: Theme.title; font-size: 11pt; font-weight: 800; vertical-alignment: center; }
+                            Rectangle { horizontal-stretch: 1; }
+                            IconButton { icon: "\u{eb99}"; clicked => { root.add_dialog_visible = false; root.add_adapter_menu_visible = false; } }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { width: 48px; text: "类型"; color: Theme.text; font-size: 9pt; vertical-alignment: center; horizontal-alignment: right; }
+                            ComboBox { height: 28px; model: root.policy_store_names; current-index <=> root.add_policy_store_index; }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { width: 48px; text: "目标"; color: Theme.text; font-size: 9pt; vertical-alignment: center; horizontal-alignment: right; }
+                            LineEdit { height: 28px; text <=> root.add_destination; placeholder-text: "10.10.0.0/16"; }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { width: 48px; text: "网卡"; color: Theme.text; font-size: 9pt; vertical-alignment: center; horizontal-alignment: right; }
+                            Rectangle {
+                                height: 28px;
+                                border-radius: 4px;
+                                background: Theme.menu-bg;
+                                border-width: 1px;
+                                border-color: Theme.menu-border;
+
+                                TouchArea {
+                                    enabled: root.adapter_names.length > 0;
+                                    mouse-cursor: root.adapter_names.length > 0 ? MouseCursor.pointer : MouseCursor.default;
+                                    clicked => { root.add_adapter_menu_visible = !root.add_adapter_menu_visible; }
+                                }
+
+                                HorizontalLayout {
+                                    padding-left: 8px;
+                                    padding-right: 8px;
+                                    Text { text: root.add_adapter_name; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; }
+                                    Text { width: 16px; text: "\u{ea4e}"; color: Theme.text; font-size: 14px; font-family: "remixicon"; vertical-alignment: center; horizontal-alignment: center; }
+                                }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { width: 48px; text: "网关"; color: Theme.text; font-size: 9pt; vertical-alignment: center; horizontal-alignment: right; }
+                            LineEdit { height: 28px; text <=> root.add_next_hop; placeholder-text: "192.168.0.1"; }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { width: 48px; text: "跃点"; color: Theme.text; font-size: 9pt; vertical-alignment: center; horizontal-alignment: right; }
+                            LineEdit { height: 28px; text <=> root.add_metric; placeholder-text: "可选"; }
+                        }
+
+                        Rectangle { vertical-stretch: 1; }
+
+                        HorizontalLayout {
+                            Rectangle { horizontal-stretch: 1; }
+                            Button { height: 28px; text: "保存"; primary: true; enabled: root.add_destination != "" && root.add_next_hop != ""; clicked => { root.add_route(root.add_destination, root.add_next_hop, root.add_policy_store, root.add_interface_index, root.add_metric); } }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                    }
+                }
+            }
+
+            if (root.add_adapter_menu_visible): Rectangle {
+                width: 336px;
+                height: 150px;
+                x: 84px;
+                y: 356px;
+                border-radius: 6px;
+                background: Theme.menu-bg;
+                border-width: 1px;
+                border-color: Theme.menu-border;
+
+                ListView {
+                    width: 100%;
+                    height: 100%;
+
+                    for adapter_name[index] in root.adapter_names: Rectangle {
+                        height: 30px;
+                        background: index == root.add_adapter_index ? Theme.menu-active-bg : adapter_ta.has-hover ? Theme.menu-hover-bg : transparent;
+
+                        adapter_ta := TouchArea {
+                            mouse-cursor: MouseCursor.pointer;
+                            clicked => {
+                                root.add_adapter_index = index;
+                                root.add_next_hop = root.selected_adapter_gateway;
+                                root.add_adapter_menu_visible = false;
+                            }
+                        }
+
+                        Text {
+                            width: 100%;
+                            height: 100%;
+                            x: 10px;
+                            text: adapter_name;
+                            color: adapter_ta.has-hover ? Theme.menu-hover-fg : Theme.text;
+                            font-size: 9pt;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+                }
+            }
+
+            if (root.status_text != ""): Rectangle {
+                width: 100%;
+                height: 100%;
+                background: #00000066;
+
+                Rectangle {
+                    width: 360px;
+                    height: 128px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: 8px;
+                    background: Theme.card-bg;
+                    border-width: 1px;
+                    border-color: Theme.menu-border;
+
+                    VerticalLayout {
+                        padding: 14px;
+                        spacing: 10px;
+
+                        Text {
+                            text: root.status_text;
+                            color: Theme.text;
+                            font-size: 10pt;
+                            wrap: word-wrap;
+                        }
+
+                        Rectangle { vertical-stretch: 1; }
+
+                        HorizontalLayout {
+                            Rectangle { horizontal-stretch: 1; }
+
+                            Button {
+                                height: 26px;
+                                text: "确定";
+                                primary: true;
+                                clicked => { root.status_text = ""; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

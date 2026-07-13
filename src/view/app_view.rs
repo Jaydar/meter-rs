@@ -45,6 +45,10 @@ impl ViewTrait for AppView {
         let _ = self.ui.hide();
     }
 
+    fn close(&self) {
+        let _ = slint::quit_event_loop();
+    }
+
     fn set_position(&self) {
         let weak = self.ui.as_weak();
 
@@ -147,4 +151,3 @@ impl ViewTrait for AppView {
         self
     }
 }
-

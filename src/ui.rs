@@ -88,3 +88,8 @@ impl ViewManager {
 pub fn use_view<T: 'static + ViewTrait>() -> &'static T {
     _manager.with(|manager_cell| manager_cell.borrow_mut().get_static::<T>())
 }
+
+#[allow(dead_code)]
+pub fn open_view<T: ViewTrait>() -> anyhow::Result<()> {
+    T::new().show(None)
+}

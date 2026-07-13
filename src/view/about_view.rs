@@ -37,7 +37,12 @@ impl ViewTrait for AboutView {
     }
 
     fn hide(&self) {
+        self.ui.invoke_close_about();
         let _ = self.ui.hide();
+    }
+
+    fn close(&self) {
+        self.hide();
     }
 
     fn set_position(&self) {
@@ -69,7 +74,7 @@ impl ViewTrait for AboutView {
         });
         self.ui.on_close_about(|| {
             let about = ui::use_view::<crate::view::AboutView>();
-            about.hide();
+            about.close();
         });
         self.ui.on_open_github(|| {
             let _ = Command::new("cmd")
@@ -84,4 +89,3 @@ impl ViewTrait for AboutView {
         self
     }
 }
-

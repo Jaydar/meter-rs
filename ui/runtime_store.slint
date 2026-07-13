@@ -15,8 +15,20 @@ export struct DiskMenuEntry {
 export struct NetworkAdapterEntry {
     id: string,
     name: string,
+    interface_index: string,
+    gateway: string,
     current_mac: string,
     mac: string,
+}
+
+export struct RouteEntry {
+    destination: string,
+    adapter_id: string,
+    interface_index: string,
+    adapter: string,
+    gateway: string,
+    metric: string,
+    source: string,
 }
 
 export global RuntimeStore {

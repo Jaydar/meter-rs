@@ -5,14 +5,15 @@ fn main() {
 
     #[cfg(windows)]
     {
-        if std::env::var_os("RC_PATH").is_none() && find_rc_path().is_none() {
+        if std::env::var("PROFILE").ok().as_deref() != Some("release") {
+        } else if std::env::var_os("RC_PATH").is_none() && find_rc_path().is_none() {
             println!("cargo:warning=rc.exe not found, skip Windows resource");
         } else {
             winresource::WindowsResource::new().compile().unwrap();
         }
     }
-
-    let conf = slint_build::CompilerConfiguration::default().with_style("cosmic".to_owned());
+    // fluent material cupertino cosmic qt native
+    let conf = slint_build::CompilerConfiguration::default().with_style("fluent".to_owned());
     slint_build::compile_with_config("ui/page/app.slint", conf).unwrap();
     slint_build::print_rustc_flags().unwrap();
 }

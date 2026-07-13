@@ -5,13 +5,13 @@ use tracing::error;
 
 use crate::{_main_hwnd, tools, ui, view::ViewTrait};
 
-pub struct MacAddressView {
-    pub ui: ui::MacAddressWindow,
+pub struct RouteManagerView {
+    pub ui: ui::RouteManagerWindow,
 }
 
-impl ViewTrait for MacAddressView {
+impl ViewTrait for RouteManagerView {
     fn new() -> Self {
-        let ui = match ui::MacAddressWindow::new().context("create MacAddressWindow failed") {
+        let ui = match ui::RouteManagerWindow::new().context("create RouteManagerWindow failed") {
             Ok(ui) => ui,
             Err(err) => panic!("{}", err),
         };
@@ -25,6 +25,7 @@ impl ViewTrait for MacAddressView {
         self.ui.global::<ui::ConfigStore>().set_theme_mode(theme_mode);
         self.ui.global::<ui::Theme>().set_mode(theme_mode);
         self.refresh_adapters();
+        self.refresh_routes();
         let _ = self.ui.show();
         self.set_position();
         Ok(())
@@ -32,10 +33,6 @@ impl ViewTrait for MacAddressView {
 
     fn hide(&self) {
         let _ = self.ui.hide();
-    }
-
-    fn close(&self) {
-        self.ui.invoke_close_mac_address();
     }
 
     fn set_position(&self) {
@@ -58,42 +55,42 @@ impl ViewTrait for MacAddressView {
 
     fn bind_event(self) -> Self {
         self.ui.on_win_move(|delta_x, delta_y| {
-            let mac_view = ui::use_view::<crate::view::MacAddressView>();
-            let window = mac_view.ui.window();
+            let route_view = ui::use_view::<crate::view::RouteManagerView>();
+            let window = route_view.ui.window();
             let scale_factor = window.scale_factor();
             let logical_pos = window.position().to_logical(scale_factor);
             window.set_position(slint::LogicalPosition::new(logical_pos.x + delta_x, logical_pos.y + delta_y));
         });
-        self.ui.on_close_mac_address(|| {
-            let mac_view = ui::use_view::<crate::view::MacAddressView>();
-            mac_view.hide();
+        self.ui.on_close_route_manager(|| {
+            let route_view = ui::use_view::<crate::view::RouteManagerView>();
+            route_view.hide();
         });
-        self.ui.on_apply_mac_address(|adapter_id, original_mac, new_mac| {
-            let mac_view = ui::use_view::<crate::view::MacAddressView>();
-            match tools::set_mac_address(adapter_id.as_str(), original_mac.as_str(), new_mac.as_str()) {
+        self.ui.on_add_route(|destination, next_hop, policy_store, interface_index, metric| {
+            let route_view = ui::use_view::<crate::view::RouteManagerView>();
+            match tools::add_route(destination.as_str(), next_hop.as_str(), policy_store.as_str(), interface_index.as_str(), metric.as_str()) {
                 Ok(()) => {
-                    mac_view.ui.set_status_text("".into());
-                    mac_view.ui.set_new_mac("".into());
-                    mac_view.refresh_adapters();
-                    mac_view.ui.set_pending_adapter_id(adapter_id);
-                    mac_view.ui.set_success_dialog_visible(true);
+                    route_view.ui.set_add_dialog_visible(false);
+                    route_view.ui.set_status_text("新增成功".into());
+                    route_view.ui.set_add_destination("".into());
+                    route_view.ui.set_add_metric("".into());
                 }
                 Err(err) => {
-                    error!("set mac address failed: {}", err);
-                    mac_view.ui.set_status_text(format!("修改失败: {err}").into());
+                    error!("add route failed: {}", err);
+                    route_view.ui.set_status_text(format!("新增失败: {err}").into());
                 }
             }
+            route_view.refresh_routes();
         });
-        self.ui.on_restart_adapter(|adapter_id| {
-            let mac_view = ui::use_view::<crate::view::MacAddressView>();
-            match tools::restart_network_adapter(adapter_id.as_str()) {
+        self.ui.on_delete_route(|destination, interface_index, source| {
+            let route_view = ui::use_view::<crate::view::RouteManagerView>();
+            match tools::delete_route(destination.as_str(), interface_index.as_str(), source.as_str()) {
                 Ok(()) => {
-                    mac_view.ui.set_status_text("网卡已重启".into());
-                    mac_view.refresh_adapters();
+                    route_view.ui.set_status_text("".into());
+                    route_view.refresh_routes();
                 }
                 Err(err) => {
-                    error!("restart network adapter failed: {}", err);
-                    mac_view.ui.set_status_text(format!("重启失败: {err}").into());
+                    error!("delete route failed: {}", err);
+                    route_view.ui.set_status_text(format!("删除失败: {err}").into());
                 }
             }
         });
@@ -105,7 +102,7 @@ impl ViewTrait for MacAddressView {
     }
 }
 
-impl MacAddressView {
+impl RouteManagerView {
     fn refresh_adapters(&self) {
         match tools::network_adapters() {
             Ok(adapters) => {
@@ -120,19 +117,44 @@ impl MacAddressView {
                         mac: adapter.mac.clone().into(),
                     })
                     .collect::<Vec<_>>();
-                let names = adapters.iter().map(|adapter| adapter.name.clone().into()).collect::<Vec<slint::SharedString>>();
+                let names = adapters.iter().map(|adapter| format!("{}({})", adapter.name, adapter.gateway).into()).collect::<Vec<slint::SharedString>>();
                 self.ui.set_adapters(ModelRc::from(entries.as_slice()));
                 self.ui.set_adapter_names(ModelRc::from(names.as_slice()));
-                self.ui.set_selected_index(0);
-                self.ui.set_original_mac(entries.first().map(|entry| entry.mac.clone()).unwrap_or_default());
+                self.ui.set_add_adapter_index(0);
+                self.ui.set_add_next_hop(entries.first().map(|entry| entry.gateway.clone()).unwrap_or_default());
                 self.ui.set_status_text(if entries.is_empty() { "没有找到可用网卡".into() } else { "".into() });
             }
             Err(err) => {
                 error!("load network adapters failed: {}", err);
                 self.ui.set_adapters(ModelRc::from([].as_slice()));
                 self.ui.set_adapter_names(ModelRc::from([].as_slice()));
-                self.ui.set_selected_index(0);
+                self.ui.set_add_adapter_index(0);
                 self.ui.set_status_text(format!("读取网卡失败: {err}").into());
+            }
+        }
+    }
+
+    fn refresh_routes(&self) {
+        match tools::routes() {
+            Ok(routes) => {
+                let entries = routes
+                    .iter()
+                    .map(|route| ui::RouteEntry {
+                        destination: route.destination.clone().into(),
+                        adapter_id: route.adapter_id.clone().into(),
+                        interface_index: route.interface_index.clone().into(),
+                        adapter: format!("{}({})", route.adapter, route.gateway).into(),
+                        gateway: route.gateway.clone().into(),
+                        metric: route.metric.clone().into(),
+                        source: route.source.clone().into(),
+                    })
+                    .collect::<Vec<_>>();
+                self.ui.set_routes(ModelRc::from(entries.as_slice()));
+            }
+            Err(err) => {
+                error!("load routes failed: {}", err);
+                self.ui.set_routes(ModelRc::from([].as_slice()));
+                self.ui.set_status_text(format!("读取路由失败: {err}").into());
             }
         }
     }
