@@ -1,9 +1,0 @@
-2026-07-13 11:23:39.643 ERROR add route failed: \x1b[31;1mNew-NetRoute: \x1b[31;1mCannot process command because of one or more missing mandatory parameters: InterfaceAlias.\x1b[0m
-2026-07-13 11:46:21.176  INFO add route command: New-NetRoute -DestinationPrefix '211.156.210.206/32' -NextHop '172.32.12.254' -PolicyStore PersistentStore -InterfaceIndex 59 -RouteMetric 1 -ErrorAction Stop | Out-Null
-2026-07-13 11:46:21.973 ERROR add route failed: \x1b[31;1mNew-NetRoute: \x1b[31;1mInvalid parameter PolicyStore PersistentStore\x1b[0m
-2026-07-13 11:47:48.405  INFO add route command: New-NetRoute -DestinationPrefix '211.156.210.206/32' -NextHop '172.30.12.254' -PolicyStore PersistentStore -InterfaceIndex 59 -RouteMetric 1 -ErrorAction Stop | Out-Null
-2026-07-13 11:47:49.216 ERROR add route failed: \x1b[31;1mNew-NetRoute: \x1b[31;1mInvalid parameter PolicyStore PersistentStore\x1b[0m
-2026-07-13 11:54:36.145  INFO add route command: New-NetRoute -DestinationPrefix '211.156.210.205/32' -NextHop '172.30.12.254' -PolicyStore ActiveStore -InterfaceIndex 19 -RouteMetric 1 -ErrorAction Stop | Out-Null
-2026-07-13 11:56:02.604  INFO add route command: route -p add 211.156.210.206 mask 255.255.255.255 172.30.12.254 metric 1 if 19
-2026-07-13 13:59:22.524  INFO add route command: route -p add 211.156.210.205 mask 255.255.255.255 172.30.12.254 metric 10 if 19
-2026-07-13 14:02:23.689  INFO add route command: route -p add 211.156.210.205 mask 255.255.255.255 172.30.12.254 metric 10 if 19
