@@ -1,5 +1,5 @@
 import "../assets/remixicon.ttf";
-import { Button, ComboBox, LineEdit } from "std-widgets.slint";
+import { Button, ComboBox, LineEdit, Spinner } from "std-widgets.slint";
 import { NetworkAdapterEntry } from "../runtime_store.slint";
 import { Theme } from "../theme.slint";
 
@@ -17,6 +17,7 @@ export component MacAddressWindow inherits Window {
     in-out property <string> original_mac;
     in-out property <string> new_mac;
     in-out property <string> status_text;
+    in-out property <bool> loading_visible: false;
     in-out property <bool> success_dialog_visible: false;
     in-out property <string> pending_adapter_id;
     out property <string> current_mac: root.adapters.length > 0 && root.selected_index >= 0 && root.selected_index < root.adapters.length ? root.adapters[root.selected_index].current_mac : "";
@@ -183,6 +184,8 @@ export component MacAddressWindow inherits Window {
                     }
                 }
             }
+
+            if (root.loading_visible): Rectangle { width: 100%; height: 100%; background: #00000099; Spinner { width: 36px; height: 36px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; indeterminate: true; } }
         }
     }
 }

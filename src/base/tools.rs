@@ -1,10 +1,11 @@
 use std::os::windows::process::CommandExt;
-use std::{cell::RefCell, env, process::Command, thread};
+use std::{cell::RefCell, env, process::Command};
 
 use anyhow::{Context, Result, bail};
 use i_slint_backend_winit::WinitWindowAccessor;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use slint::ComponentHandle;
+use tokio::process::Command as TokioCommand;
 use windows::Win32::{
     Foundation::{CloseHandle, HWND, LPARAM, POINT, RECT, WPARAM},
     Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow},
@@ -38,6 +39,7 @@ pub struct NetworkAdapter {
 }
 
 pub struct RouteEntry {
+    pub address_family: String,
     pub destination: String,
     pub adapter_id: String,
     pub interface_index: String,
@@ -45,6 +47,14 @@ pub struct RouteEntry {
     pub gateway: String,
     pub metric: String,
     pub source: String,
+}
+
+pub struct PortProxyEntry {
+    pub proxy_type: String,
+    pub listen_address: String,
+    pub listen_port: String,
+    pub connect_address: String,
+    pub connect_port: String,
 }
 
 /// 从 Slint 窗口句柄中提取原生 HWND。
@@ -187,9 +197,9 @@ pub fn restart_explorer() {
     let _ = Command::new("explorer.exe").creation_flags(_create_no_window).spawn();
 }
 
-/// 在后台线程中尝试清理进程工作集。
+/// 在 Tokio 阻塞任务中尝试清理进程工作集。
 pub fn clean_memory() {
-    let _ = thread::Builder::new().name("meter-rs-memory-clean".to_string()).spawn(|| unsafe {
+    let _ = tokio::task::spawn_blocking(|| unsafe {
         if let Ok(snapshot) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
             let mut entry = PROCESSENTRY32W { dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
 
@@ -277,7 +287,7 @@ fn quote_arg(value: &str) -> String {
 }
 
 pub fn close_when_parent_exit(parent_pid: u32) {
-    let _ = thread::Builder::new().name("meter-rs-parent-watch".to_string()).spawn(move || {
+    let _ = tokio::task::spawn_blocking(move || {
         let Ok(process) = (unsafe { OpenProcess(_synchronize, false, parent_pid) }) else {
             return;
         };
@@ -292,7 +302,7 @@ pub fn close_when_parent_exit(parent_pid: u32) {
 }
 
 pub fn close_when_event_set(close_event: String) {
-    let _ = thread::Builder::new().name("meter-rs-close-event-watch".to_string()).spawn(move || {
+    let _ = tokio::task::spawn_blocking(move || {
         let Ok(event) = (unsafe { OpenEventW(SYNCHRONIZATION_SYNCHRONIZE, false, &HSTRING::from(close_event.as_str())) }) else {
             return;
         };
@@ -330,22 +340,41 @@ pub fn network_adapters() -> Result<Vec<NetworkAdapter>> {
     Ok(String::from_utf8_lossy(&output.stdout).lines().filter_map(parse_network_adapter).collect())
 }
 
+pub async fn network_adapters_async() -> Result<Vec<NetworkAdapter>> {
+    let script = "Get-NetAdapter | Where-Object { $_.InterfaceDescription -notmatch 'Bluetooth' -and $_.Name -notmatch 'Bluetooth|蓝牙' } | Sort-Object Name | ForEach-Object { $id = \"$($_.InterfaceGuid)\".ToUpper(); $path = Get-ChildItem 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}' | Where-Object { (Get-ItemProperty $_.PSPath -Name NetCfgInstanceId -ErrorAction SilentlyContinue).NetCfgInstanceId -eq $id } | Select-Object -First 1; $origin = if ($null -ne $path) { (Get-ItemProperty $path.PSPath -Name NetworrkAddressOrigin -ErrorAction SilentlyContinue).NetworrkAddressOrigin } else { $null }; $config = Get-NetIPConfiguration -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue; $gateway = if ($null -ne $config -and $null -ne $config.IPv4DefaultGateway) { ($config.IPv4DefaultGateway | Select-Object -First 1).NextHop } else { '' }; if ([string]::IsNullOrWhiteSpace($origin)) { $origin = $_.MacAddress }; \"$id`t$($_.Name)`t$($_.InterfaceIndex)`t$($_.MacAddress)`t$origin`t$gateway\" }";
+    let output = powershell_async_command(script).output().await.context("run Get-NetAdapter failed")?;
+    if !output.status.success() {
+        bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).lines().filter_map(parse_network_adapter).collect())
+}
+
 pub fn routes() -> Result<Vec<RouteEntry>> {
-    let script = "$adapters = @{}; Get-NetAdapter -IncludeHidden | ForEach-Object { $adapters[[int]$_.InterfaceIndex] = @{ Id = \"$($_.InterfaceGuid)\".ToUpper(); Name = $_.Name } }; @(@{ Name = '活动'; Store = 'ActiveStore' }, @{ Name = '永久'; Store = 'PersistentStore' }) | ForEach-Object { $source = $_.Name; Get-NetRoute -AddressFamily IPv4 -PolicyStore $_.Store -ErrorAction SilentlyContinue | Sort-Object DestinationPrefix, InterfaceIndex, RouteMetric | ForEach-Object { $route = $_; $index = [int]$route.InterfaceIndex; $adapter = $adapters[$index]; $id = if ($null -ne $adapter) { $adapter.Id } else { '' }; $name = if ($index -eq 0) { 'None' } elseif ($null -ne $adapter) { \"$($adapter.Name)($index)\" } else { \"接口 $index\" }; $gateway = if ($route.NextHop -eq '0.0.0.0') { '在链路上' } else { $route.NextHop }; \"$($route.DestinationPrefix)`t$id`t$index`t$name`t$gateway`t$($route.RouteMetric)`t$source\" } }";
-    let output = powershell_command(script).output().context("run Get-NetRoute failed")?;
+    let script = "$adapters = @{}; Get-NetAdapter -IncludeHidden | ForEach-Object { $adapters[[int]$_.InterfaceIndex] = @{ Id = \"$($_.InterfaceGuid)\".ToUpper(); Name = $_.Name } }; 'IPv4', 'IPv6' | ForEach-Object { $family = $_; 'PersistentStore', 'ActiveStore' | ForEach-Object { $store = $_; Get-NetRoute -AddressFamily $family -PolicyStore $store -ErrorAction SilentlyContinue | Sort-Object DestinationPrefix, InterfaceIndex, RouteMetric | ForEach-Object { $route = $_; $index = [int]$route.InterfaceIndex; $adapter = $adapters[$index]; $id = if ($null -ne $adapter) { $adapter.Id } else { '' }; $name = if ($index -eq 0) { 'None' } elseif ($null -ne $adapter) { \"$($adapter.Name)($index)\" } else { \"接口 $index\" }; $gateway = if ($route.NextHop -eq '0.0.0.0' -or $route.NextHop -eq '::') { '在链路上' } else { $route.NextHop }; \"$family`t$($route.DestinationPrefix)`t$id`t$index`t$name`t$gateway`t$($route.RouteMetric)`t$store\" } } }";
+    let output = powershell_command(&script).output().context("run Get-NetRoute failed")?;
     if !output.status.success() {
         bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
     }
     Ok(String::from_utf8_lossy(&output.stdout).lines().filter_map(parse_route_entry).collect())
 }
 
-pub fn add_route(destination: &str, next_hop: &str, policy_store: &str, interface_index: &str, metric: &str) -> Result<()> {
-    let destination = normalize_route_destination(destination)?;
-    let next_hop = normalize_next_hop(next_hop)?;
+pub async fn routes_async() -> Result<Vec<RouteEntry>> {
+    let script = "$adapters = @{}; Get-NetAdapter -IncludeHidden | ForEach-Object { $adapters[[int]$_.InterfaceIndex] = @{ Id = \"$($_.InterfaceGuid)\".ToUpper(); Name = $_.Name } }; 'IPv4', 'IPv6' | ForEach-Object { $family = $_; 'PersistentStore', 'ActiveStore' | ForEach-Object { $store = $_; Get-NetRoute -AddressFamily $family -PolicyStore $store -ErrorAction SilentlyContinue | Sort-Object DestinationPrefix, InterfaceIndex, RouteMetric | ForEach-Object { $route = $_; $index = [int]$route.InterfaceIndex; $adapter = $adapters[$index]; $id = if ($null -ne $adapter) { $adapter.Id } else { '' }; $name = if ($index -eq 0) { 'None' } elseif ($null -ne $adapter) { \"$($adapter.Name)($index)\" } else { \"接口 $index\" }; $gateway = if ($route.NextHop -eq '0.0.0.0' -or $route.NextHop -eq '::') { '在链路上' } else { $route.NextHop }; \"$family`t$($route.DestinationPrefix)`t$id`t$index`t$name`t$gateway`t$($route.RouteMetric)`t$store\" } } }";
+    let output = powershell_async_command(script).output().await.context("run Get-NetRoute failed")?;
+    if !output.status.success() {
+        bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).lines().filter_map(parse_route_entry).collect())
+}
+
+pub fn add_route(destination: &str, next_hop: &str, address_family: &str, policy_store: &str, interface_index: &str, metric: &str) -> Result<()> {
+    let address_family = normalize_address_family(address_family)?;
+    let destination = normalize_route_destination(destination, address_family)?;
+    let next_hop = normalize_next_hop(next_hop, address_family)?;
     let policy_store = normalize_policy_store(policy_store)?;
     let interface_index = normalize_interface_index(interface_index)?;
     let metric = normalize_route_metric(metric)?;
-    let output = if policy_store == "PersistentStore" {
+    let output = if address_family == "IPv4" && policy_store == "PersistentStore" {
         let (address, prefix) = destination.split_once('/').unwrap();
         let mask = std::net::Ipv4Addr::from(u32::MAX.checked_shl(32 - prefix.parse::<u32>().unwrap()).unwrap_or(0)).to_string();
         let metric = metric.unwrap_or(1).to_string();
@@ -361,7 +390,7 @@ pub fn add_route(destination: &str, next_hop: &str, policy_store: &str, interfac
     } else {
         let interface_arg = interface_index.map(|interface_index| format!(" -InterfaceIndex {interface_index}")).unwrap_or_default();
         let metric_arg = metric.map(|metric| format!(" -RouteMetric {metric}")).unwrap_or_default();
-        let script = format!("New-NetRoute -DestinationPrefix '{}' -NextHop '{}' -PolicyStore {}{}{} -ErrorAction Stop | Out-Null", destination, next_hop, policy_store, interface_arg, metric_arg);
+        let script = format!("New-NetRoute -AddressFamily {address_family} -DestinationPrefix '{}' -NextHop '{}' -PolicyStore {}{}{} -ErrorAction Stop | Out-Null", destination, next_hop, policy_store, interface_arg, metric_arg);
         tracing::info!("add route command: {script}");
         powershell_command(&script).output().context("run add route failed")?
     };
@@ -371,16 +400,87 @@ pub fn add_route(destination: &str, next_hop: &str, policy_store: &str, interfac
     Ok(())
 }
 
-pub fn delete_route(destination: &str, interface_index: &str, source: &str) -> Result<()> {
+pub async fn add_route_async(destination: String, next_hop: String, address_family: String, policy_store: String, interface_index: String, metric: String) -> Result<()> {
+    tokio::task::spawn_blocking(move || add_route(&destination, &next_hop, &address_family, &policy_store, &interface_index, &metric)).await.context("wait add route task failed")?
+}
+
+pub fn delete_route(destination: &str, interface_index: &str, address_family: &str, source: &str) -> Result<()> {
     let destination = ps_quote(destination);
     let interface_index = ps_quote(interface_index);
     let source = ps_quote(source);
-    let script = format!("$destination = '{}'; $index = '{}'; $source = '{}'; if ($index -eq '') {{ throw '未找到接口' }}; $store = if ($source -eq '永久') {{ 'PersistentStore' }} else {{ 'ActiveStore' }}; Get-NetRoute -DestinationPrefix $destination -InterfaceIndex ([int]$index) -PolicyStore $store -ErrorAction SilentlyContinue | Remove-NetRoute -Confirm:$false", destination, interface_index, source);
+    let address_family = normalize_address_family(address_family)?;
+    let script = format!("$destination = '{}'; $index = '{}'; $source = '{}'; if ($index -eq '') {{ throw '未找到接口' }}; Get-NetRoute -DestinationPrefix $destination -InterfaceIndex ([int]$index) -AddressFamily {address_family} -PolicyStore $source -ErrorAction SilentlyContinue | Remove-NetRoute -Confirm:$false", destination, interface_index, source);
     let output = powershell_command(&script).output().context("run delete route failed")?;
     if !output.status.success() {
         bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
     }
     Ok(())
+}
+
+pub async fn delete_route_async(destination: String, interface_index: String, address_family: String, source: String) -> Result<()> {
+    tokio::task::spawn_blocking(move || delete_route(&destination, &interface_index, &address_family, &source)).await.context("wait delete route task failed")?
+}
+
+pub fn port_proxies() -> Result<Vec<PortProxyEntry>> {
+    let script = "'v4tov4', 'v4tov6', 'v6tov4', 'v6tov6' | ForEach-Object { $type = $_; netsh interface portproxy show $type | Select-Object -Skip 5 | ForEach-Object { $parts = $_.Trim() -split '\\s+'; if ($parts.Count -eq 4) { \"$type`t$($parts[0])`t$($parts[1])`t$($parts[2])`t$($parts[3])\" } } }";
+    let output = powershell_command(script).output().context("run netsh portproxy show failed")?;
+    if !output.status.success() {
+        bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).lines().filter_map(parse_port_proxy_entry).collect())
+}
+
+pub async fn port_proxies_async() -> Result<Vec<PortProxyEntry>> {
+    let script = "'v4tov4', 'v4tov6', 'v6tov4', 'v6tov6' | ForEach-Object { $type = $_; netsh interface portproxy show $type | Select-Object -Skip 5 | ForEach-Object { $parts = $_.Trim() -split '\\s+'; if ($parts.Count -eq 4) { \"$type`t$($parts[0])`t$($parts[1])`t$($parts[2])`t$($parts[3])\" } } }";
+    let output = powershell_async_command(script).output().await.context("run netsh portproxy show failed")?;
+    if !output.status.success() {
+        bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).lines().filter_map(parse_port_proxy_entry).collect())
+}
+
+pub fn add_port_proxy(proxy_type: &str, listen_address: &str, listen_port: &str, connect_address: &str, connect_port: &str) -> Result<()> {
+    let proxy_type = normalize_port_proxy_type(proxy_type)?;
+    let listen_address = normalize_ip_address(listen_address, "监听地址", proxy_type.starts_with("v4"))?;
+    let listen_port = normalize_port(listen_port, "监听端口")?;
+    let connect_address = normalize_ip_address(connect_address, "目标地址", proxy_type.ends_with("v4"))?;
+    let connect_port = normalize_port(connect_port, "目标端口")?;
+    let output = Command::new("netsh").creation_flags(_create_no_window).args(["interface", "portproxy", "add", proxy_type, &format!("listenaddress={listen_address}"), &format!("listenport={listen_port}"), &format!("connectaddress={connect_address}"), &format!("connectport={connect_port}")]).output().context("run netsh portproxy add failed")?;
+    if !output.status.success() {
+        bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+    }
+    Ok(())
+}
+
+pub async fn add_port_proxy_async(proxy_type: String, listen_address: String, listen_port: String, connect_address: String, connect_port: String) -> Result<()> {
+    tokio::task::spawn_blocking(move || add_port_proxy(&proxy_type, &listen_address, &listen_port, &connect_address, &connect_port)).await.context("wait add port proxy task failed")?
+}
+
+pub fn delete_port_proxy(proxy_type: &str, listen_address: &str, listen_port: &str) -> Result<()> {
+    let proxy_type = normalize_port_proxy_type(proxy_type)?;
+    let listen_address = normalize_ip_address(listen_address, "监听地址", proxy_type.starts_with("v4"))?;
+    let listen_port = normalize_port(listen_port, "监听端口")?;
+    let output = Command::new("netsh").creation_flags(_create_no_window).args(["interface", "portproxy", "delete", proxy_type, &format!("listenport={listen_port}"), &format!("listenaddress={listen_address}")]).output().context("run netsh portproxy delete failed")?;
+    if !output.status.success() {
+        bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+    }
+    Ok(())
+}
+
+pub async fn delete_port_proxy_async(proxy_type: String, listen_address: String, listen_port: String) -> Result<()> {
+    tokio::task::spawn_blocking(move || delete_port_proxy(&proxy_type, &listen_address, &listen_port)).await.context("wait delete port proxy task failed")?
+}
+
+pub fn reset_port_proxies() -> Result<()> {
+    let output = Command::new("netsh").creation_flags(_create_no_window).args(["interface", "portproxy", "reset"]).output().context("run netsh portproxy reset failed")?;
+    if !output.status.success() {
+        bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+    }
+    Ok(())
+}
+
+pub async fn reset_port_proxies_async() -> Result<()> {
+    tokio::task::spawn_blocking(reset_port_proxies).await.context("wait reset port proxies task failed")?
 }
 
 pub fn set_mac_address(adapter_id: &str, original_mac: &str, new_mac: &str) -> Result<()> {
@@ -395,6 +495,10 @@ pub fn set_mac_address(adapter_id: &str, original_mac: &str, new_mac: &str) -> R
     Ok(())
 }
 
+pub async fn set_mac_address_async(adapter_id: String, original_mac: String, new_mac: String) -> Result<()> {
+    tokio::task::spawn_blocking(move || set_mac_address(&adapter_id, &original_mac, &new_mac)).await.context("wait set mac address task failed")?
+}
+
 pub fn restart_network_adapter(adapter_id: &str) -> Result<()> {
     let adapter_id = ps_quote(adapter_id);
     let script = format!("$id = '{}'; $adapter = Get-NetAdapter | Where-Object {{ $_.InterfaceGuid -eq $id }} | Select-Object -First 1; if ($null -eq $adapter) {{ throw '未找到网卡' }}; $adapter | Disable-NetAdapter -Confirm:$false; Start-Sleep -Seconds 1; $adapter | Enable-NetAdapter -Confirm:$false", adapter_id);
@@ -406,6 +510,10 @@ pub fn restart_network_adapter(adapter_id: &str) -> Result<()> {
 }
 
 /// 从显示器句柄中读取工作区域。
+pub async fn restart_network_adapter_async(adapter_id: String) -> Result<()> {
+    tokio::task::spawn_blocking(move || restart_network_adapter(&adapter_id)).await.context("wait restart adapter task failed")?
+}
+
 fn get_work_area_from_monitor(h_monitor: windows::Win32::Graphics::Gdi::HMONITOR) -> Option<(i32, i32, i32, i32)> {
     let mut mi = MONITORINFO::default();
     mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
@@ -430,6 +538,14 @@ fn powershell_command(script: &str) -> Command {
     command
 }
 
+fn powershell_async_command(script: &str) -> TokioCommand {
+    let mut command = TokioCommand::new("pwsh");
+    let script = format!("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; {script}");
+    command.creation_flags(_create_no_window);
+    command.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script]);
+    command
+}
+
 fn parse_network_adapter(line: &str) -> Option<NetworkAdapter> {
     let parts = line.split('\t').collect::<Vec<_>>();
     if parts.len() < 5 || parts[0].trim().is_empty() || parts[1].trim().is_empty() {
@@ -440,20 +556,28 @@ fn parse_network_adapter(line: &str) -> Option<NetworkAdapter> {
 
 fn parse_route_entry(line: &str) -> Option<RouteEntry> {
     let parts = line.split('\t').collect::<Vec<_>>();
-    if parts.len() < 7 || parts[0].trim().is_empty() || parts[2].trim().is_empty() {
+    if parts.len() < 8 || parts[1].trim().is_empty() || parts[3].trim().is_empty() {
         return None;
     }
-    Some(RouteEntry { destination: parts[0].trim().to_string(), adapter_id: parts[1].trim().to_string(), interface_index: parts[2].trim().to_string(), adapter: parts[3].trim().to_string(), gateway: parts[4].trim().to_string(), metric: parts[5].trim().to_string(), source: parts[6].trim().to_string() })
+    Some(RouteEntry { address_family: parts[0].trim().to_string(), destination: parts[1].trim().to_string(), adapter_id: parts[2].trim().to_string(), interface_index: parts[3].trim().to_string(), adapter: parts[4].trim().to_string(), gateway: parts[5].trim().to_string(), metric: parts[6].trim().to_string(), source: parts[7].trim().to_string() })
 }
 
-fn normalize_route_destination(destination: &str) -> Result<String> {
+fn parse_port_proxy_entry(line: &str) -> Option<PortProxyEntry> {
+    let parts = line.split('\t').collect::<Vec<_>>();
+    if parts.len() != 5 {
+        return None;
+    }
+    Some(PortProxyEntry { proxy_type: format_port_proxy_type(parts[0]), listen_address: parts[1].to_string(), listen_port: parts[2].to_string(), connect_address: parts[3].to_string(), connect_port: parts[4].to_string() })
+}
+
+fn normalize_route_destination(destination: &str, address_family: &str) -> Result<String> {
     let value = destination.trim();
     let parts = value.split('/').collect::<Vec<_>>();
-    if parts.len() != 2 || parts[0].parse::<std::net::Ipv4Addr>().is_err() {
+    if parts.len() != 2 || (address_family == "IPv4" && parts[0].parse::<std::net::Ipv4Addr>().is_err()) || (address_family == "IPv6" && parts[0].parse::<std::net::Ipv6Addr>().is_err()) {
         bail!("路由格式错误");
     }
     let prefix = parts[1].parse::<u8>().context("路由掩码错误")?;
-    if prefix > 32 {
+    if prefix > if address_family == "IPv4" { 32 } else { 128 } {
         bail!("路由掩码错误");
     }
     Ok(format!("{}/{}", parts[0], prefix))
@@ -468,12 +592,57 @@ fn normalize_route_metric(metric: &str) -> Result<Option<u32>> {
     Ok(Some(metric))
 }
 
-fn normalize_next_hop(next_hop: &str) -> Result<String> {
+fn normalize_next_hop(next_hop: &str, address_family: &str) -> Result<String> {
     let value = next_hop.trim();
-    if value.parse::<std::net::Ipv4Addr>().is_err() {
+    if (address_family == "IPv4" && value.parse::<std::net::Ipv4Addr>().is_err()) || (address_family == "IPv6" && value.parse::<std::net::Ipv6Addr>().is_err()) {
         bail!("网关格式错误");
     }
     Ok(value.to_string())
+}
+
+fn normalize_address_family(address_family: &str) -> Result<&'static str> {
+    match address_family {
+        "IPv4" => Ok("IPv4"),
+        "IPv6" => Ok("IPv6"),
+        _ => bail!("地址类型错误"),
+    }
+}
+
+fn normalize_ip_address(address: &str, name: &str, ipv4: bool) -> Result<String> {
+    let address = address.trim();
+    if (ipv4 && address.parse::<std::net::Ipv4Addr>().is_err()) || (!ipv4 && address.parse::<std::net::Ipv6Addr>().is_err()) {
+        bail!("{name}格式错误");
+    }
+    Ok(address.to_string())
+}
+
+fn normalize_port_proxy_type(proxy_type: &str) -> Result<&'static str> {
+    match proxy_type {
+        "v4tov4" | "V4 to V4" => Ok("v4tov4"),
+        "v4tov6" | "V4 to V6" => Ok("v4tov6"),
+        "v6tov4" | "V6 to V4" => Ok("v6tov4"),
+        "v6tov6" | "V6 to V6" => Ok("v6tov6"),
+        _ => bail!("转发类型错误"),
+    }
+}
+
+fn format_port_proxy_type(proxy_type: &str) -> String {
+    match proxy_type {
+        "v4tov4" => "V4 to V4",
+        "v4tov6" => "V4 to V6",
+        "v6tov4" => "V6 to V4",
+        "v6tov6" => "V6 to V6",
+        _ => proxy_type,
+    }
+    .to_string()
+}
+
+fn normalize_port(port: &str, name: &str) -> Result<u16> {
+    let port = port.trim().parse::<u16>().with_context(|| format!("{name}格式错误"))?;
+    if port == 0 {
+        bail!("{name}格式错误");
+    }
+    Ok(port)
 }
 
 fn normalize_policy_store(policy_store: &str) -> Result<&'static str> {

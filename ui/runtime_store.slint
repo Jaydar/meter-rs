@@ -22,6 +22,7 @@ export struct NetworkAdapterEntry {
 }
 
 export struct RouteEntry {
+    address_family: string,
     destination: string,
     adapter_id: string,
     interface_index: string,
@@ -29,6 +30,14 @@ export struct RouteEntry {
     gateway: string,
     metric: string,
     source: string,
+}
+
+export struct PortProxyEntry {
+    proxy_type: string,
+    listen_address: string,
+    listen_port: string,
+    connect_address: string,
+    connect_port: string,
 }
 
 export global RuntimeStore {

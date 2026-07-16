@@ -1,16 +1,19 @@
-mod app_view;
+mod app;
 use std::any::Any;
 
-pub use app_view::AppView;
+pub use app::AppView;
 
-mod about_view;
-pub use about_view::AboutView;
+mod about;
+pub use about::AboutView;
 
-mod mac_address_view;
-pub use mac_address_view::MacAddressView;
+mod mac_address;
+pub use mac_address::MacAddressView;
 
-mod route_manager_view;
-pub use route_manager_view::RouteManagerView;
+mod port_proxy;
+pub use port_proxy::PortProxyView;
+
+mod route_manager;
+pub use route_manager::RouteManagerView;
 
 pub trait ViewTrait {
     fn new() -> Self where Self: Sized;

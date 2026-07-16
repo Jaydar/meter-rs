@@ -1,5 +1,5 @@
 import "../assets/remixicon.ttf";
-import { Button, ComboBox, LineEdit, ListView } from "std-widgets.slint";
+import { Button, ComboBox, LineEdit, ListView, Spinner } from "std-widgets.slint";
 import { NetworkAdapterEntry, RouteEntry } from "../runtime_store.slint";
 import { Theme } from "../theme.slint";
 
@@ -40,30 +40,35 @@ export component RouteManagerWindow inherits Window {
     default-font-size: 10pt;
 
     in-out property <[RouteEntry]> routes: [];
+    in-out property <[RouteEntry]> all_routes: [];
     in-out property <[NetworkAdapterEntry]> adapters: [];
     in-out property <[string]> adapter_names: [];
     in-out property <int> add_adapter_index: 0;
     in-out property <bool> add_dialog_visible: false;
     in-out property <bool> add_adapter_menu_visible: false;
     in-out property <bool> delete_dialog_visible: false;
+    in-out property <bool> loading_visible: false;
     in-out property <string> add_destination;
     in-out property <string> add_next_hop;
     in-out property <int> add_policy_store_index: 1;
+    in-out property <int> route_tab_index: 0;
     in-out property <string> add_metric;
     in-out property <string> status_text;
     in-out property <string> delete_destination;
     in-out property <string> delete_interface_index;
     in-out property <string> delete_source;
     out property <[string]> policy_store_names: ["活动", "永久"];
-    out property <string> add_policy_store: root.add_policy_store_index == 0 ? "ActiveStore" : "PersistentStore";
+    out property <string> route_address_family: root.route_tab_index < 2 ? "IPv4" : "IPv6";
+    out property <string> route_policy_store: root.route_tab_index == 0 || root.route_tab_index == 2 ? "PersistentStore" : "ActiveStore";
     out property <string> add_interface_index: root.add_adapter_index >= 0 && root.add_adapter_index < root.adapters.length ? root.adapters[root.add_adapter_index].interface_index : "";
     out property <string> selected_adapter_gateway: root.add_adapter_index >= 0 && root.add_adapter_index < root.adapters.length ? root.adapters[root.add_adapter_index].gateway : "";
     out property <string> add_adapter_name: root.adapter_names.length > 0 && root.add_adapter_index >= 0 && root.add_adapter_index < root.adapter_names.length ? root.adapter_names[root.add_adapter_index] : "";
 
     callback win_move(length, length);
     callback close_route_manager();
-    callback add_route(string, string, string, string, string);
-    callback delete_route(string, string, string);
+    callback add_route(string, string, string, string, string, string);
+    callback delete_route(string, string, string, string);
+    callback select_route_tab(int);
 
     Rectangle {
         width: 100%;
@@ -115,6 +120,18 @@ export component RouteManagerWindow inherits Window {
                     background: Theme.menu-border;
                 }
 
+                Rectangle {
+                    height: 30px;
+
+                    HorizontalLayout {
+                        spacing: 4px;
+                        Button { text: "V4 永久路由"; primary: root.route_tab_index == 0; clicked => { root.select_route_tab(0); } }
+                        Button { text: "V4 活动路由"; primary: root.route_tab_index == 1; clicked => { root.select_route_tab(1); } }
+                        Button { text: "V6 永久路由"; primary: root.route_tab_index == 2; clicked => { root.select_route_tab(2); } }
+                        Button { text: "V6 活动路由"; primary: root.route_tab_index == 3; clicked => { root.select_route_tab(3); } }
+                    }
+                }
+
                 VerticalLayout {
                     vertical-stretch: 1;
                     spacing: 4px;
@@ -130,7 +147,6 @@ export component RouteManagerWindow inherits Window {
                             Text { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; text: "网关"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
                             Text { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; text: "接口"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
                             Text { width: 44px; text: "跃点"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
-                            Text { width: 44px; text: "来源"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
                             Text { width: 28px; text: "操作"; color: Theme.sub-title; font-size: 9pt; font-weight: 800; }
                         }
                     }
@@ -149,7 +165,6 @@ export component RouteManagerWindow inherits Window {
                                 Rectangle { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; height: 100%; Text { width: 100%; height: 100%; text: route.gateway; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; } }
                                 Rectangle { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; height: 100%; Text { width: 100%; height: 100%; text: route.adapter; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; } }
                                 Text { width: 44px; text: route.metric; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; }
-                                Text { width: 44px; text: route.source; color: Theme.text; font-size: 9pt; vertical-alignment: center; overflow: elide; }
                                 Rectangle { width: 28px; height: 100%; IconButton { y: (parent.height - self.height) / 2; icon: "\u{eb99}"; clicked => { root.delete_destination = route.destination; root.delete_interface_index = route.interface_index; root.delete_source = route.source; root.delete_dialog_visible = true; } } }
                             }
 
@@ -186,7 +201,7 @@ export component RouteManagerWindow inherits Window {
                             spacing: 8px;
                             Rectangle { horizontal-stretch: 1; background: transparent; }
                             Button { height: 26px; text: "取消"; clicked => { root.delete_dialog_visible = false; } }
-                            Button { height: 26px; text: "删除"; primary: true; clicked => { root.delete_dialog_visible = false; root.delete_route(root.delete_destination, root.delete_interface_index, root.delete_source); } }
+                            Button { height: 26px; text: "删除"; primary: true; clicked => { root.delete_dialog_visible = false; root.delete_route(root.delete_destination, root.delete_interface_index, root.route_address_family, root.route_policy_store); } }
                         }
                     }
                 }
@@ -215,12 +230,6 @@ export component RouteManagerWindow inherits Window {
                             Text { text: "新增路由"; color: Theme.title; font-size: 11pt; font-weight: 800; vertical-alignment: center; }
                             Rectangle { horizontal-stretch: 1; }
                             IconButton { icon: "\u{eb99}"; clicked => { root.add_dialog_visible = false; root.add_adapter_menu_visible = false; } }
-                        }
-
-                        HorizontalLayout {
-                            spacing: 8px;
-                            Text { width: 48px; text: "类型"; color: Theme.text; font-size: 9pt; vertical-alignment: center; horizontal-alignment: right; }
-                            ComboBox { height: 28px; model: root.policy_store_names; current-index <=> root.add_policy_store_index; }
                         }
 
                         HorizontalLayout {
@@ -270,7 +279,7 @@ export component RouteManagerWindow inherits Window {
 
                         HorizontalLayout {
                             Rectangle { horizontal-stretch: 1; }
-                            Button { height: 28px; text: "保存"; primary: true; enabled: root.add_destination != "" && root.add_next_hop != ""; clicked => { root.add_route(root.add_destination, root.add_next_hop, root.add_policy_store, root.add_interface_index, root.add_metric); } }
+                            Button { height: 28px; text: "保存"; primary: true; enabled: root.add_destination != "" && root.add_next_hop != ""; clicked => { root.add_route(root.add_destination, root.add_next_hop, root.route_address_family, root.route_policy_store, root.add_interface_index, root.add_metric); } }
                             Rectangle { horizontal-stretch: 1; }
                         }
                     }
@@ -358,6 +367,14 @@ export component RouteManagerWindow inherits Window {
                         }
                     }
                 }
+            }
+
+            if (root.loading_visible): Rectangle {
+                width: 100%;
+                height: 100%;
+                background: #00000099;
+
+                Spinner { width: 36px; height: 36px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; indeterminate: true; }
             }
         }
     }

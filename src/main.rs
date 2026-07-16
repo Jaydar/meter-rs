@@ -30,6 +30,7 @@ struct AdminPage {
 const _admin_pages: &[AdminPage] = &[
     AdminPage { name: "mac", show: || ui::use_view::<view::MacAddressView>().show(None) },
     AdminPage { name: "route", show: || ui::use_view::<view::RouteManagerView>().show(None) },
+    AdminPage { name: "port-proxy", show: || ui::use_view::<view::PortProxyView>().show(None) },
 ];
 
 fn run_app() -> Result<()> {
@@ -118,7 +119,8 @@ fn arg_value(name: &str) -> Option<String> {
     None
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     log::init();
 
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(run_app)) {

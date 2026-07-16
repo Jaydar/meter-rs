@@ -1,6 +1,6 @@
 [package]
 name = "Meter-rs"
-version = "1.0.2"
+version = "1.0.3"
 edition = "2024"
 build = "build.rs"
 repository = "https://github.com/Jaydar/meter-rs"
@@ -23,6 +23,7 @@ time = { version = "0.3.51", features = ["formatting", "macros"] }
 config = { version = "0.15.25", default-features = false, features = ["yaml"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_yaml = "0.9.34"
+tokio = { version = "1.52.4", features = ["rt-multi-thread", "process","macros"] }
 
 raw-window-handle = "0.6.2"
 winit = "0.30.13"

@@ -11,7 +11,7 @@ use windows::{
 
 use crate::{
     _main_hwnd, task, tools, ui,
-    view::{AboutView, AppView, MacAddressView, RouteManagerView, ViewTrait},
+    view::{AboutView, AppView, MacAddressView, PortProxyView, RouteManagerView, ViewTrait},
 };
 
 thread_local! {
@@ -163,6 +163,15 @@ fn handle_menu_event(id: &str) {
                 error!("{}", err);
             }
         }
+        "port_proxy" => {
+            if tools::is_admin() {
+                if let Err(err) = ui::open_view::<PortProxyView>() {
+                    error!("{}", err);
+                }
+            } else if let Err(err) = tools::run_as_admin_open_page("port-proxy") {
+                error!("{}", err);
+            }
+        }
         "about" => {
             if let Err(err) = ui::open_view::<AboutView>() {
                 error!("{}", err);
@@ -233,6 +242,7 @@ fn build_menu() -> Menu {
             &item("clean_memory", "内存清理"),
             &item("mac_address", "修改 MAC 地址"),
             &item("route_manager", "路由管理"),
+            &item("port_proxy", "端口转发"),
             &PredefinedMenuItem::separator(),
             &item("about", "关于 Meter RS"),
             &PredefinedMenuItem::separator(),

@@ -1,13 +1,14 @@
 import { AboutWindow } from "about.slint";
 import { MacAddressWindow } from "mac_address.slint";
 import { RouteManagerWindow } from "route_manager.slint";
+import { PortProxyWindow } from "port_proxy.slint";
 import { NormalWidget } from "widget/normal.slint";
 import { SimpleWidget } from "widget/simple.slint";
 import { Theme } from "../theme.slint";
 import { ConfigStore, DisplayMode, SnapMode } from "../config_store.slint";
-import { DiskIoEntry, DiskMenuEntry, NetworkAdapterEntry, RouteEntry, RuntimeStore } from "../runtime_store.slint";
+import { DiskIoEntry, DiskMenuEntry, NetworkAdapterEntry, PortProxyEntry, RouteEntry, RuntimeStore } from "../runtime_store.slint";
 
-export { AboutWindow, MacAddressWindow, RouteManagerWindow, ConfigStore, DiskIoEntry, DiskMenuEntry, NetworkAdapterEntry, RouteEntry, RuntimeStore, DisplayMode, SnapMode, Theme }
+export { AboutWindow, MacAddressWindow, PortProxyWindow, RouteManagerWindow, ConfigStore, DiskIoEntry, DiskMenuEntry, NetworkAdapterEntry, PortProxyEntry, RouteEntry, RuntimeStore, DisplayMode, SnapMode, Theme }
 
 export component AppWindow inherits Window {
     title: "Meter RS";
