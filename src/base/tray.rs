@@ -28,7 +28,7 @@ pub fn setup(_hwnd: usize) {
 
             apply_windows_menu_theme(ui::use_view::<AppView>().ui.global::<ui::ConfigStore>().get_theme_mode());
             let menu = build_menu();
-            let icon = Icon::from_resource(1, Some((16, 16))).or_else(|_| tray_icon_image());
+            let icon = tray_icon_image();
             let icon = match icon {
                 Ok(icon) => icon,
                 Err(err) => {
@@ -70,20 +70,12 @@ fn start_event_timer() {
 }
 
 fn tray_icon_image() -> Result<Icon, tray_icon::BadIcon> {
-    let mut rgba = vec![0u8; 16 * 16 * 4];
-    for y in 0..16 {
-        for x in 0..16 {
-            let i = (y * 16 + x) * 4;
-            let active = (3..=5).contains(&x) && y >= 7 || (7..=9).contains(&x) && y >= 4 || (11..=13).contains(&x) && y >= 9;
-            let border = x == 1 || x == 14 || y == 1 || y == 14;
-            if active {
-                rgba[i..i + 4].copy_from_slice(&[74, 222, 128, 255]);
-            } else if border {
-                rgba[i..i + 4].copy_from_slice(&[148, 163, 184, 255]);
-            }
-        }
-    }
-    Icon::from_rgba(rgba, 16, 16)
+    let options = resvg::usvg::Options::default();
+    let tree = resvg::usvg::Tree::from_data(include_bytes!("../../ui/assets/icon.svg"), &options).unwrap();
+    let mut pixmap = resvg::tiny_skia::Pixmap::new(32, 32).unwrap();
+    let scale = 32.0 / tree.size().width().max(tree.size().height());
+    resvg::render(&tree, resvg::tiny_skia::Transform::from_scale(scale, scale), &mut pixmap.as_mut());
+    Icon::from_rgba(pixmap.data().to_vec(), 32, 32)
 }
 
 fn apply_windows_menu_theme(theme_mode: ui::ThemeMode) {
