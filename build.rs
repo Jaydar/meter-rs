@@ -1,15 +1,19 @@
+
+
 fn main() {
+    println!("cargo:rerun-if-changed=ui/assets/icon.svg");
+
+
     // println!("cargo:rustc-link-search=native=vendor");
     // println!("cargo:rustc-link-lib=GetCoreTempInfo");
     // println!("cargo:rerun-if-changed=vendor/GetCoreTempInfo.lib");
 
     #[cfg(windows)]
     {
-        if std::env::var("PROFILE").ok().as_deref() != Some("release") {
-        } else if std::env::var_os("RC_PATH").is_none() && find_rc_path().is_none() {
+        if std::env::var_os("RC_PATH").is_none() && find_rc_path().is_none() {
             println!("cargo:warning=rc.exe not found, skip Windows resource");
         } else {
-            winresource::WindowsResource::new().compile().unwrap();
+            winresource::WindowsResource::new().set_icon("ui/assets/icon.ico").compile().unwrap();
         }
     }
     // fluent material cupertino cosmic qt native
@@ -17,6 +21,14 @@ fn main() {
     slint_build::compile_with_config("ui/view/app.slint", conf).unwrap();
     slint_build::print_rustc_flags().unwrap();
 }
+
+#[test]
+fn svg_to_icon() {
+    tools::svg_to_ico("ui/assets/icon.svg", "ui/assets/icon.ico");
+}
+
+
+
 
 #[cfg(windows)]
 fn find_rc_path() -> Option<()> {

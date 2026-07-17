@@ -7,7 +7,6 @@ use windows::Win32::System::{
     ProcessStatus::EmptyWorkingSet,
     Threading::{GetCurrentProcess, GetCurrentThread, SetThreadAffinityMask},
 };
-use tracing::debug;
 
 const _zero_rate: &str = "0.00 KB";
 
@@ -114,15 +113,15 @@ pub fn start_monitor(view: &ui::AppWindow) {
         let mut system = System::new();
         system.refresh_cpu_all();
         let _ = SetThreadAffinityMask(GetCurrentThread(), 1usize << system.cpus().len().saturating_sub(1));
-    }).build().unwrap();
+    }).build().expect("create monitor pool failed");
 
-
-    pool.install(move ||{
+    pool.spawn(move || {
 
         let mut system = System::new();
         let mut disks = Disks::new();
         let mut networks = Networks::new();
 
+        // cpu 测试
         // let test_until = std::time::Instant::now() + Duration::from_secs(1000000);
         // while std::time::Instant::now() < test_until {
         //     std::hint::spin_loop();

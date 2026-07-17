@@ -684,3 +684,17 @@ fn format_mac_address(mac: &str) -> Result<String> {
 fn ps_quote(value: &str) -> String {
     value.replace('\'', "''")
 }
+
+
+pub fn svg_to_ico(svg_path: &str, ico_path: &str) {
+    let options = resvg::usvg::Options::default();
+    let tree = resvg::usvg::Tree::from_data(&std::fs::read(svg_path).unwrap(), &options).unwrap();
+    let mut pixmap = resvg::tiny_skia::Pixmap::new(64, 64).unwrap();
+    resvg::render(&tree, resvg::tiny_skia::Transform::identity(), &mut pixmap.as_mut());
+    let image = pixmap.encode_png().unwrap();
+    let mut icon = vec![0, 0, 1, 0, 1, 0, 64, 64, 0, 0, 1, 0, 32, 0];
+    icon.extend_from_slice(&(image.len() as u32).to_le_bytes());
+    icon.extend_from_slice(&22u32.to_le_bytes());
+    icon.extend_from_slice(&image);
+    std::fs::write(ico_path, icon).unwrap();
+}
