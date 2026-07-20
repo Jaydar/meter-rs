@@ -66,19 +66,19 @@ export component SimpleWidget inherits Rectangle {
                 if (ConfigStore.show_cpu): HorizontalLayout {
                     spacing: 2px;
                     Text { text: "\u{ebf0}"; color: Theme.text; font-size: 12pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
-                    Text { width: 40px; text: RuntimeStore.cpu_usage.to-fixed(1) + "%"; color: root.get_cpu_color(RuntimeStore.cpu_usage); font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
+                    Text { width: 45px; text: RuntimeStore.cpu_usage.to-fixed(1) + "%"; color: root.get_cpu_color(RuntimeStore.cpu_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
                 }
 
                 if (ConfigStore.show_memory): HorizontalLayout {
                     spacing: 2px;
                     Text { text: "\u{f452}"; color: Theme.text; font-size: 12pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
-                    Text { width: 40px; text: RuntimeStore.memory_usage.to-fixed(1) + "%"; color: root.get_mem_color(RuntimeStore.memory_usage); font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
+                    Text { width: 45px; text: RuntimeStore.memory_usage.to-fixed(1) + "%"; color: root.get_mem_color(RuntimeStore.memory_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
                 }
 
                 if (ConfigStore.show_disk_total): HorizontalLayout {
                     spacing: 2px;
                     Text { text: "\u{edf8}"; color: Theme.text; font-size: 12pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
-                    Text { width: 40px; text: RuntimeStore.disk_usage.to-fixed(1) + "%"; color: root.get_disk_color(RuntimeStore.disk_usage); font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
+                    Text { width: 45px; text: RuntimeStore.disk_usage.to-fixed(1) + "%"; color: root.get_disk_color(RuntimeStore.disk_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
                 }
 
                 if (ConfigStore.show_disk_io): VerticalLayout {
