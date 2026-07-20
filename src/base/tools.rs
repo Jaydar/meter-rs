@@ -531,7 +531,7 @@ fn reg_command() -> Command {
 }
 
 fn powershell_command(script: &str) -> Command {
-    let mut command = Command::new("pwsh");
+    let mut command = Command::new("powershell.exe");
     let script = format!("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; {script}");
     command.creation_flags(_create_no_window);
     command.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script]);
@@ -539,7 +539,7 @@ fn powershell_command(script: &str) -> Command {
 }
 
 fn powershell_async_command(script: &str) -> TokioCommand {
-    let mut command = TokioCommand::new("pwsh");
+    let mut command = TokioCommand::new("powershell.exe");
     let script = format!("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; {script}");
     command.creation_flags(_create_no_window);
     command.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script]);
