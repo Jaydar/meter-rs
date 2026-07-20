@@ -83,13 +83,13 @@ export component SimpleWidget inherits Rectangle {
 
                 if (ConfigStore.show_disk_io): VerticalLayout {
                     HorizontalLayout {
-                        height: 12px;
+                        height: 10px;
                         spacing: 2px;
                         Text { text: "R"; color: Theme.text; font-size: 8pt; font-family: "Microsoft YaHei Mono"; horizontal-alignment: center; vertical-alignment: center; }
                         Text { width: 56px; text: RuntimeStore.disk_total_read; color: Theme.text-low; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
                     }
                     HorizontalLayout {
-                        height: 12px;
+                        height: 10px;
                         spacing: 2px;
                         Text { text: "W"; color: Theme.text; font-size: 8pt; font-family: "Microsoft YaHei Mono"; horizontal-alignment: center; vertical-alignment: center; }
                         Text { width: 56px; text: RuntimeStore.disk_total_write; color: Theme.text-mid; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
@@ -98,13 +98,13 @@ export component SimpleWidget inherits Rectangle {
 
                 if (ConfigStore.show_network): VerticalLayout {
                     HorizontalLayout {
-                        height: 12px;
+                        height: 10px;
                         spacing: 2px;
                         Text { text: "\u{ec5a}"; color: Theme.text; font-size: 8pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
                         Text { width: 56px; text: RuntimeStore.network_rx; color: Theme.text-low; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
                     }
                     HorizontalLayout {
-                        height: 12px;
+                        height: 10px;
                         spacing: 2px;
                         Text { text: "\u{f250}"; color: Theme.text; font-size: 8pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
                         Text { width: 56px; text: RuntimeStore.network_tx; color: Theme.text-low; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
