@@ -66,29 +66,30 @@ export component SimpleWidget inherits Rectangle {
                 if (ConfigStore.show_cpu): HorizontalLayout {
                     spacing: 2px;
                     Text { text: "\u{ebf0}"; color: Theme.text; font-size: 12pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
-                    Text { width: 38px; text: RuntimeStore.cpu_usage.to-fixed(1) + "%"; color: root.get_cpu_color(RuntimeStore.cpu_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                    Text { width: 40px; text: RuntimeStore.cpu_usage.to-fixed(1) + "%"; color: root.get_cpu_color(RuntimeStore.cpu_usage); font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
                 }
 
                 if (ConfigStore.show_memory): HorizontalLayout {
                     spacing: 2px;
                     Text { text: "\u{f452}"; color: Theme.text; font-size: 12pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
-                    Text { width: 38px; text: RuntimeStore.memory_usage.to-fixed(1) + "%"; color: root.get_mem_color(RuntimeStore.memory_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                    Text { width: 40px; text: RuntimeStore.memory_usage.to-fixed(1) + "%"; color: root.get_mem_color(RuntimeStore.memory_usage); font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
                 }
 
                 if (ConfigStore.show_disk_total): HorizontalLayout {
                     spacing: 2px;
                     Text { text: "\u{edf8}"; color: Theme.text; font-size: 12pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
-                    Text { width: 38px; text: RuntimeStore.disk_usage.to-fixed(1) + "%"; color: root.get_disk_color(RuntimeStore.disk_usage); font-size: 9pt; horizontal-alignment: right; vertical-alignment: center; }
+                    Text { width: 40px; text: RuntimeStore.disk_usage.to-fixed(1) + "%"; color: root.get_disk_color(RuntimeStore.disk_usage); font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
                 }
 
                 if (ConfigStore.show_disk_io): VerticalLayout {
-                    spacing: 0px;
                     HorizontalLayout {
+                        height: 12px;
                         spacing: 2px;
                         Text { text: "R"; color: Theme.text; font-size: 8pt; font-family: "Microsoft YaHei Mono"; horizontal-alignment: center; vertical-alignment: center; }
                         Text { width: 56px; text: RuntimeStore.disk_total_read; color: Theme.text-low; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
                     }
                     HorizontalLayout {
+                        height: 12px;
                         spacing: 2px;
                         Text { text: "W"; color: Theme.text; font-size: 8pt; font-family: "Microsoft YaHei Mono"; horizontal-alignment: center; vertical-alignment: center; }
                         Text { width: 56px; text: RuntimeStore.disk_total_write; color: Theme.text-mid; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
@@ -96,13 +97,14 @@ export component SimpleWidget inherits Rectangle {
                 }
 
                 if (ConfigStore.show_network): VerticalLayout {
-                    spacing: 0px;
                     HorizontalLayout {
+                        height: 12px;
                         spacing: 2px;
                         Text { text: "\u{ec5a}"; color: Theme.text; font-size: 8pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
                         Text { width: 56px; text: RuntimeStore.network_rx; color: Theme.text-low; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
                     }
                     HorizontalLayout {
+                        height: 12px;
                         spacing: 2px;
                         Text { text: "\u{f250}"; color: Theme.text; font-size: 8pt; font-family: "remixicon"; horizontal-alignment: center; vertical-alignment: center; }
                         Text { width: 56px; text: RuntimeStore.network_tx; color: Theme.text-low; font-size: 8pt; horizontal-alignment: right; vertical-alignment: center; }
