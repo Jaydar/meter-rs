@@ -94,6 +94,30 @@ impl ViewTrait for PortProxyView {
                 });
             });
         });
+        self.ui.on_edit_port_proxy(|old_proxy_type, old_listen_address, old_listen_port, proxy_type, listen_address, listen_port, connect_address, connect_port| {
+            let weak = ui::use_view::<crate::view::PortProxyView>().ui.as_weak();
+            let _ = tokio::spawn(async move {
+                let result = tools::delete_port_proxy_async(old_proxy_type.to_string(), old_listen_address.to_string(), old_listen_port.to_string()).await;
+                let result = match result {
+                    Ok(()) => tools::add_port_proxy_async(proxy_type.to_string(), listen_address.to_string(), listen_port.to_string(), connect_address.to_string(), connect_port.to_string()).await,
+                    Err(err) => Err(err),
+                };
+                let port_proxies = if result.is_ok() { tools::port_proxies_async().await } else { Ok(Vec::new()) };
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(ui) = weak.upgrade() else { return; };
+                    match result {
+                        Ok(()) => {
+                            PortProxyView::update_port_proxies(&ui, port_proxies);
+                            ui.set_add_dialog_visible(false);
+                        }
+                        Err(err) => {
+                            error!("edit port proxy failed: {}", err);
+                            ui.set_status_text(format!("修改失败: {err}").into());
+                        }
+                    }
+                });
+            });
+        });
         self.ui.on_delete_port_proxy(|proxy_type, listen_address, listen_port| {
             let weak = ui::use_view::<crate::view::PortProxyView>().ui.as_weak();
             let _ = tokio::spawn(async move {

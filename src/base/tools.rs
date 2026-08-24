@@ -6,6 +6,7 @@ use i_slint_backend_winit::WinitWindowAccessor;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use slint::ComponentHandle;
 use tokio::process::Command as TokioCommand;
+use tracing::error;
 use windows::Win32::{
     Foundation::{CloseHandle, HWND, LPARAM, POINT, RECT, WPARAM},
     Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow},
@@ -126,7 +127,9 @@ pub fn get_size(hwnd: usize) -> Option<(i32, i32, i32, i32)> {
 pub fn get_current_mouse_position() -> POINT {
     let mut point = POINT { x: 0, y: 0 };
     unsafe {
-        let _ = GetCursorPos(&mut point);
+        if let Err(err) = GetCursorPos(&mut point) {
+            error!("GetCursorPos failed: {}", err);
+        }
     }
     point
 }
@@ -172,7 +175,9 @@ pub fn set_mouse_passthrough(hwnd: usize, enable: bool) {
             style &= !(WS_EX_TRANSPARENT.0 as isize);
         }
         SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style);
-        let _ = SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE);
+        if let Err(err) = SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE) {
+            error!("SetWindowPos failed: {}", err);
+        }
     }
 }
 
@@ -180,27 +185,41 @@ pub fn set_mouse_passthrough(hwnd: usize, enable: bool) {
 pub fn set_prevent_sleep(enable: bool) {
     unsafe {
         let flags = if enable { ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED } else { ES_CONTINUOUS };
-        let _ = SetThreadExecutionState(flags);
+        if SetThreadExecutionState(flags).0 == 0 {
+            error!("SetThreadExecutionState failed");
+        }
     }
 }
 
 /// 通过系统命令关闭显示器。
 pub fn turn_off_display() {
     unsafe {
-        let _ = SendMessageW(HWND_BROADCAST, WM_SYSCOMMAND, Some(WPARAM(SC_MONITORPOWER as usize)), Some(LPARAM(2)));
+        let result = SendMessageW(HWND_BROADCAST, WM_SYSCOMMAND, Some(WPARAM(SC_MONITORPOWER as usize)), Some(LPARAM(2)));
+        if result.0 == 0 {
+            error!("SendMessageW monitor power failed");
+        }
     }
 }
 
 /// 重启 Windows 资源管理器。
 pub fn restart_explorer() {
-    let _ = Command::new("taskkill").creation_flags(_create_no_window).args(["/F", "/IM", "explorer.exe"]).status();
-    let _ = Command::new("explorer.exe").creation_flags(_create_no_window).spawn();
+    tracing::info!("Windows command: taskkill /F /IM explorer.exe");
+    match Command::new("taskkill").creation_flags(_create_no_window).args(["/F", "/IM", "explorer.exe"]).status() {
+        Ok(status) if status.success() => {}
+        Ok(status) => error!("taskkill explorer.exe failed with status {}", status),
+        Err(err) => error!("run taskkill explorer.exe failed: {}", err),
+    }
+    tracing::info!("Windows command: explorer.exe");
+    if let Err(err) = Command::new("explorer.exe").creation_flags(_create_no_window).spawn() {
+        error!("start explorer.exe failed: {}", err);
+    }
 }
 
 /// 在 Tokio 阻塞任务中尝试清理进程工作集。
 pub fn clean_memory() {
-    let _ = tokio::task::spawn_blocking(|| unsafe {
-        if let Ok(snapshot) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
+    tokio::task::spawn_blocking(|| unsafe {
+        match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
+            Ok(snapshot) => {
             let mut entry = PROCESSENTRY32W { dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
 
             if Process32FirstW(snapshot, &mut entry).is_ok() {
@@ -208,9 +227,17 @@ pub fn clean_memory() {
                     let pid = entry.th32ProcessID;
                     if pid != 0 {
                         if let Ok(process) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_QUOTA, false, pid) {
-                            let _ = SetProcessWorkingSetSize(process, usize::MAX, usize::MAX);
-                            let _ = EmptyWorkingSet(process);
-                            let _ = CloseHandle(process);
+                            if let Err(err) = SetProcessWorkingSetSize(process, usize::MAX, usize::MAX) {
+                                error!("SetProcessWorkingSetSize for process {} failed: {}", pid, err);
+                            }
+                            if let Err(err) = EmptyWorkingSet(process) {
+                                error!("EmptyWorkingSet for process {} failed: {}", pid, err);
+                            }
+                            if let Err(err) = CloseHandle(process) {
+                                error!("close process {} handle failed: {}", pid, err);
+                            }
+                        } else {
+                            error!("open process {} for memory cleanup failed", pid);
                         }
                     }
 
@@ -220,7 +247,11 @@ pub fn clean_memory() {
                 }
             }
 
-            let _ = CloseHandle(snapshot);
+            if let Err(err) = CloseHandle(snapshot) {
+                error!("close process snapshot failed: {}", err);
+            }
+            }
+            Err(err) => error!("create process snapshot failed: {}", err),
         }
 
         trim_memory();
@@ -231,18 +262,31 @@ pub fn clean_memory() {
 pub fn trim_memory() {
     unsafe {
         let handle = GetCurrentProcess();
-        let _ = SetProcessWorkingSetSize(handle, usize::MAX, usize::MAX);
-        let _ = EmptyWorkingSet(handle);
+        if let Err(err) = SetProcessWorkingSetSize(handle, usize::MAX, usize::MAX) {
+            error!("SetProcessWorkingSetSize failed: {}", err);
+        }
+        if let Err(err) = EmptyWorkingSet(handle) {
+            error!("EmptyWorkingSet failed: {}", err);
+        }
     }
 }
 
 /// 检查程序是否已注册开机自启。
 pub fn is_auto_start() -> bool {
     let app_name = "Meter RS";
+    tracing::info!("Windows command: reg query ... /v {}", app_name);
     let status = reg_command().args(["query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", app_name]).output();
     match status {
-        Ok(output) => output.status.success(),
-        Err(_) => false,
+        Ok(output) => {
+            if !output.status.success() {
+                error!("reg query auto start failed: {}", String::from_utf8_lossy(&output.stderr).trim());
+            }
+            output.status.success()
+        }
+        Err(err) => {
+            error!("run reg query auto start failed: {}", err);
+            false
+        }
     }
 }
 
@@ -252,10 +296,19 @@ pub fn set_auto_start(enable: bool) {
     if enable {
         if let Ok(current_exe) = env::current_exe() {
             let exe_path = current_exe.to_str().unwrap_or("");
-            let _ = reg_command().args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", app_name, "/t", "REG_SZ", "/d", exe_path, "/f"]).status();
+            tracing::info!("Windows command: reg add ... /v {} /d {} /f", app_name, exe_path);
+            match reg_command().args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", app_name, "/t", "REG_SZ", "/d", exe_path, "/f"]).status() {
+                Ok(status) if status.success() => {}
+                Ok(status) => error!("reg add auto start failed with status {}", status),
+                Err(err) => error!("run reg add auto start failed: {}", err),
+            }
         }
     } else {
-        let _ = reg_command().args(["delete", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", app_name, "/f"]).status();
+        match reg_command().args(["delete", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", app_name, "/f"]).status() {
+            Ok(status) if status.success() => {}
+            Ok(status) => error!("reg delete auto start failed with status {}", status),
+            Err(err) => error!("run reg delete auto start failed: {}", err),
+        }
     }
 }
 
@@ -287,32 +340,46 @@ fn quote_arg(value: &str) -> String {
 }
 
 pub fn close_when_parent_exit(parent_pid: u32) {
-    let _ = tokio::task::spawn_blocking(move || {
+    tokio::task::spawn_blocking(move || {
         let Ok(process) = (unsafe { OpenProcess(_synchronize, false, parent_pid) }) else {
+            error!("open parent process {} failed", parent_pid);
             return;
         };
         unsafe {
-            let _ = WaitForSingleObject(process, INFINITE);
-            let _ = CloseHandle(process);
+            if WaitForSingleObject(process, INFINITE).0 == u32::MAX {
+                error!("wait for parent process {} failed", parent_pid);
+            }
+            if let Err(err) = CloseHandle(process) {
+                error!("close parent process handle failed: {}", err);
+            }
         }
-        let _ = slint::invoke_from_event_loop(|| {
+        if let Err(err) = slint::invoke_from_event_loop(|| {
             let _ = slint::quit_event_loop();
-        });
+        }) {
+            error!("quit event loop after parent exit failed: {}", err);
+        }
     });
 }
 
 pub fn close_when_event_set(close_event: String) {
-    let _ = tokio::task::spawn_blocking(move || {
+    tokio::task::spawn_blocking(move || {
         let Ok(event) = (unsafe { OpenEventW(SYNCHRONIZATION_SYNCHRONIZE, false, &HSTRING::from(close_event.as_str())) }) else {
+            error!("open close event failed");
             return;
         };
         unsafe {
-            let _ = WaitForSingleObject(event, INFINITE);
-            let _ = CloseHandle(event);
+            if WaitForSingleObject(event, INFINITE).0 == u32::MAX {
+                error!("wait for close event failed");
+            }
+            if let Err(err) = CloseHandle(event) {
+                error!("close event handle failed: {}", err);
+            }
         }
-        let _ = slint::invoke_from_event_loop(|| {
+        if let Err(err) = slint::invoke_from_event_loop(|| {
             let _ = slint::quit_event_loop();
-        });
+        }) {
+            error!("quit event loop after close event failed: {}", err);
+        }
     });
 }
 
@@ -323,8 +390,12 @@ pub fn close_pages() {
                 continue;
             };
             unsafe {
-                let _ = SetEvent(event);
-                let _ = CloseHandle(event);
+                if let Err(err) = SetEvent(event) {
+                    error!("set admin page close event failed: {}", err);
+                }
+                if let Err(err) = CloseHandle(event) {
+                    error!("close admin page event failed: {}", err);
+                }
             }
         }
         events.borrow_mut().clear();
@@ -375,8 +446,9 @@ pub fn add_route(destination: &str, next_hop: &str, address_family: &str, policy
     let interface_index = normalize_interface_index(interface_index)?;
     let metric = normalize_route_metric(metric)?;
     let output = if address_family == "IPv4" && policy_store == "PersistentStore" {
-        let (address, prefix) = destination.split_once('/').unwrap();
-        let mask = std::net::Ipv4Addr::from(u32::MAX.checked_shl(32 - prefix.parse::<u32>().unwrap()).unwrap_or(0)).to_string();
+        let (address, prefix) = destination.split_once('/').context("invalid IPv4 route destination")?;
+        let prefix = prefix.parse::<u32>().context("invalid IPv4 route prefix")?;
+        let mask = std::net::Ipv4Addr::from(u32::MAX.checked_shl(32 - prefix).unwrap_or(0)).to_string();
         let metric = metric.unwrap_or(1).to_string();
         let interface_arg = interface_index.map(|interface_index| format!(" if {interface_index}")).unwrap_or_default();
         tracing::info!("add route command: route -p add {address} mask {mask} {next_hop} metric {metric}{interface_arg}");
@@ -386,6 +458,7 @@ pub fn add_route(destination: &str, next_hop: &str, address_family: &str, policy
         if let Some(interface_index) = interface_index {
             command.args(["if", &interface_index.to_string()]);
         }
+        tracing::info!("Windows command: route -p add {} mask {} {} metric {}", address, mask, next_hop, metric);
         command.output().context("run add persistent route failed")?
     } else {
         let interface_arg = interface_index.map(|interface_index| format!(" -InterfaceIndex {interface_index}")).unwrap_or_default();
@@ -405,12 +478,28 @@ pub async fn add_route_async(destination: String, next_hop: String, address_fami
 }
 
 pub fn delete_route(destination: &str, interface_index: &str, address_family: &str, source: &str) -> Result<()> {
-    let destination = ps_quote(destination);
-    let interface_index = ps_quote(interface_index);
-    let source = ps_quote(source);
     let address_family = normalize_address_family(address_family)?;
-    let script = format!("$destination = '{}'; $index = '{}'; $source = '{}'; if ($index -eq '') {{ throw '未找到接口' }}; Get-NetRoute -DestinationPrefix $destination -InterfaceIndex ([int]$index) -AddressFamily {address_family} -PolicyStore $source -ErrorAction SilentlyContinue | Remove-NetRoute -Confirm:$false", destination, interface_index, source);
-    let output = powershell_command(&script).output().context("run delete route failed")?;
+    let source = normalize_policy_store(source)?;
+    let destination = normalize_route_destination(destination, address_family)?;
+    let interface_index = normalize_interface_index(interface_index)?;
+    let output = if address_family == "IPv4" && source == "PersistentStore" {
+        let (address, _) = destination.split_once('/').context("invalid IPv4 route destination")?;
+        let mut command = Command::new("route");
+        command.creation_flags(_create_no_window);
+        command.args(["delete", address]);
+        if let Some(interface_index) = interface_index {
+            command.args(["if", &interface_index.to_string()]);
+        }
+        tracing::info!("Windows command: route delete {}", address);
+        command.output().context("run delete persistent route failed")?
+    } else {
+        let destination = ps_quote(&destination);
+        let interface_index = interface_index.map(|value| value.to_string()).unwrap_or_default();
+        let interface_index = ps_quote(&interface_index);
+        let source = ps_quote(source);
+        let script = format!("$destination = '{}'; $index = '{}'; $source = '{}'; if ($index -eq '') {{ throw '未找到接口' }}; Get-NetRoute -DestinationPrefix $destination -InterfaceIndex ([int]$index) -AddressFamily {address_family} -PolicyStore $source -ErrorAction Stop | Remove-NetRoute -Confirm:$false", destination, interface_index, source);
+        powershell_command(&script).output().context("run delete route failed")?
+    };
     if !output.status.success() {
         bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
     }
@@ -445,6 +534,7 @@ pub fn add_port_proxy(proxy_type: &str, listen_address: &str, listen_port: &str,
     let listen_port = normalize_port(listen_port, "监听端口")?;
     let connect_address = normalize_ip_address(connect_address, "目标地址", proxy_type.ends_with("v4"))?;
     let connect_port = normalize_port(connect_port, "目标端口")?;
+    tracing::info!("Windows command: netsh interface portproxy add {} listenaddress={} listenport={} connectaddress={} connectport={}", proxy_type, listen_address, listen_port, connect_address, connect_port);
     let output = Command::new("netsh").creation_flags(_create_no_window).args(["interface", "portproxy", "add", proxy_type, &format!("listenaddress={listen_address}"), &format!("listenport={listen_port}"), &format!("connectaddress={connect_address}"), &format!("connectport={connect_port}")]).output().context("run netsh portproxy add failed")?;
     if !output.status.success() {
         bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
@@ -460,6 +550,7 @@ pub fn delete_port_proxy(proxy_type: &str, listen_address: &str, listen_port: &s
     let proxy_type = normalize_port_proxy_type(proxy_type)?;
     let listen_address = normalize_ip_address(listen_address, "监听地址", proxy_type.starts_with("v4"))?;
     let listen_port = normalize_port(listen_port, "监听端口")?;
+    tracing::info!("Windows command: netsh interface portproxy delete {} listenport={} listenaddress={}", proxy_type, listen_port, listen_address);
     let output = Command::new("netsh").creation_flags(_create_no_window).args(["interface", "portproxy", "delete", proxy_type, &format!("listenport={listen_port}"), &format!("listenaddress={listen_address}")]).output().context("run netsh portproxy delete failed")?;
     if !output.status.success() {
         bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
@@ -472,6 +563,7 @@ pub async fn delete_port_proxy_async(proxy_type: String, listen_address: String,
 }
 
 pub fn reset_port_proxies() -> Result<()> {
+    tracing::info!("Windows command: netsh interface portproxy reset");
     let output = Command::new("netsh").creation_flags(_create_no_window).args(["interface", "portproxy", "reset"]).output().context("run netsh portproxy reset failed")?;
     if !output.status.success() {
         bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
@@ -527,6 +619,7 @@ fn get_work_area_from_monitor(h_monitor: windows::Win32::Graphics::Gdi::HMONITOR
 fn reg_command() -> Command {
     let mut command = Command::new("reg");
     command.creation_flags(_create_no_window);
+    tracing::info!("Windows command: reg");
     command
 }
 
@@ -535,6 +628,7 @@ fn powershell_command(script: &str) -> Command {
     let script = format!("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; {script}");
     command.creation_flags(_create_no_window);
     command.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script]);
+    tracing::info!("Windows command: powershell.exe -NoProfile -ExecutionPolicy Bypass -Command {}", script);
     command
 }
 
@@ -543,6 +637,7 @@ fn powershell_async_command(script: &str) -> TokioCommand {
     let script = format!("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; {script}");
     command.creation_flags(_create_no_window);
     command.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script]);
+    tracing::info!("Windows command: powershell.exe -NoProfile -ExecutionPolicy Bypass -Command {}", script);
     command
 }
 
@@ -551,7 +646,9 @@ fn parse_network_adapter(line: &str) -> Option<NetworkAdapter> {
     if parts.len() < 5 || parts[0].trim().is_empty() || parts[1].trim().is_empty() {
         return None;
     }
-    Some(NetworkAdapter { id: parts[0].trim().to_string(), name: parts[1].trim().to_string(), interface_index: parts[2].trim().to_string(), current_mac: format_mac_address(parts[3].trim()).unwrap_or_else(|_| parts[3].trim().to_string()), mac: format_mac_address(parts[4].trim()).unwrap_or_else(|_| parts[4].trim().to_string()), gateway: parts.get(5).map(|part| part.trim().to_string()).unwrap_or_default() })
+    let current_mac = format_mac_address(parts[3].trim()).unwrap_or_else(|err| { error!("parse adapter current MAC failed: {}", err); parts[3].trim().to_string() });
+    let mac = format_mac_address(parts[4].trim()).unwrap_or_else(|err| { error!("parse adapter MAC failed: {}", err); parts[4].trim().to_string() });
+    Some(NetworkAdapter { id: parts[0].trim().to_string(), name: parts[1].trim().to_string(), interface_index: parts[2].trim().to_string(), current_mac, mac, gateway: parts.get(5).map(|part| part.trim().to_string()).unwrap_or_default() })
 }
 
 fn parse_route_entry(line: &str) -> Option<RouteEntry> {
