@@ -10,27 +10,27 @@ repository = "https://github.com/Jaydar/meter-rs"
 
 
 [dependencies]
-tokio = { version = "1.52.4", features = ["rt-multi-thread", "process","macros"] }
-rayon = "1.12.0"
-anyhow = "1.0.103"
-slint = { version = "1.17.0", default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
-i-slint-backend-winit = { version = "1.17.0", default-features = false, features = ["renderer-software"] }
-i-slint-backend-selector = { version = "1.17.0", default-features = false, features = ["unstable-winit-030", "renderer-software"] }
-tray-icon = { version = "0.24.1", default-features = false }
-muda = { version = "0.19.3", default-features = false }
-tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.23", features = ["env-filter", "time"] }
-tracing-appender = "0.2.5"
-time = { version = "0.3.51", features = ["formatting", "macros"] }
-config = { version = "0.15.25", default-features = false, features = ["yaml"] }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_yaml = "0.9.34"
-resvg = "0.47.0"
+tokio = { version = "1", features = ["rt-multi-thread", "process","macros"] }
+rayon = "1"
+anyhow = "1"
+slint = { version = "1", default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
+i-slint-backend-winit = { version = "1", default-features = false, features = ["renderer-software"] }
+i-slint-backend-selector = { version = "1", default-features = false, features = ["unstable-winit-030", "renderer-software"] }
+tray-icon = { version = "0", default-features = false }
+muda = { version = "0", default-features = false }
+tracing = "0"
+tracing-subscriber = { version = "0", features = ["env-filter", "time"] }
+tracing-appender = "0"
+time = { version = "0", features = ["formatting", "macros"] }
+config = { version = "0", default-features = false, features = ["yaml"] }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0"
+resvg = "0"
 
-raw-window-handle = "0.6.2"
-winit = "0.30.13"
-sysinfo = "0.39.5"
-windows = { version = "0.62.2", features = [
+raw-window-handle = "0"
+winit = "0"
+sysinfo = "0"
+windows = { version = "0", features = [
     # "Win32_Security",
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Shell",
@@ -45,8 +45,8 @@ windows = { version = "0.62.2", features = [
 ] }
 
 [build-dependencies]
-slint-build = "1.17.0"
-winresource = "0.1.31"
+slint-build = "1"
+winresource = "0"
 
 
 [package.metadata.winresource]
