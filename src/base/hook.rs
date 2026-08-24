@@ -28,7 +28,9 @@ pub fn install_win32_hook<F>(callback: F)
 where
     F: Fn(i32, WPARAM, LPARAM) + Send + Sync + 'static,
 {
-    let _ = _on_event.set(Box::new(callback));
+    if _on_event.set(Box::new(callback)).is_err() {
+        error!("Win32 hook callback is already installed");
+    }
     unsafe {
         // thread_id 指定为当前线程，所以这个 hook 只监听本 UI 线程，不注入其它进程。
         match SetWindowsHookExW(
@@ -48,7 +50,9 @@ pub fn uninstall_win32_hook() {
     let h_hook_ptr = _hook_handle.swap(0, Ordering::SeqCst);
     if h_hook_ptr != 0 {
         unsafe {
-            let _ = UnhookWindowsHookEx(HHOOK(h_hook_ptr as *mut _));
+            if let Err(err) = UnhookWindowsHookEx(HHOOK(h_hook_ptr as *mut _)) {
+                error!("uninstall Win32 hook failed: {}", err);
+            }
         }
     }
 }

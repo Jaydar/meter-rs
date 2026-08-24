@@ -3,6 +3,7 @@ use std::{sync::mpsc, thread, time::Duration};
 use crate::ui;
 use slint::{ComponentHandle, Model, ModelRc};
 use sysinfo::{CpuRefreshKind, DiskRefreshKind, Disks, MemoryRefreshKind, Networks, System};
+use tracing::error;
 use windows::Win32::System::{
     ProcessStatus::EmptyWorkingSet,
     Threading::{GetCurrentProcess, GetCurrentThread, SetThreadAffinityMask},
@@ -55,7 +56,9 @@ fn retain_selected_disk_ids(selected_ids: &[String], valid_ids: &[String]) -> Ve
 fn trim_working_set() {
     unsafe {
         let handle = GetCurrentProcess();
-        let _ = EmptyWorkingSet(handle);
+        if let Err(err) = EmptyWorkingSet(handle) {
+            error!("EmptyWorkingSet failed: {}", err);
+        }
     }
 }
 
@@ -112,8 +115,15 @@ pub fn start_monitor(view: &ui::AppWindow) {
     let pool = rayon::ThreadPoolBuilder::new().num_threads(1).start_handler(|_| unsafe {
         let mut system = System::new();
         system.refresh_cpu_all();
-        let _ = SetThreadAffinityMask(GetCurrentThread(), 1usize << system.cpus().len().saturating_sub(1));
-    }).build().expect("create monitor pool failed");
+        if SetThreadAffinityMask(GetCurrentThread(), 1usize << system.cpus().len().saturating_sub(1)) == 0 {
+            error!("SetThreadAffinityMask failed");
+        }
+    }).build().map_err(|err| {
+        error!("create monitor pool failed: {}", err);
+    });
+    let Ok(pool) = pool else {
+        return;
+    };
 
     pool.spawn(move || {
 
@@ -146,12 +156,14 @@ pub fn start_monitor(view: &ui::AppWindow) {
                         }
                     }
 
-                    let _ = request_tx.send(MonitorRequest {
+                    if let Err(err) = request_tx.send(MonitorRequest {
                         show_disk_total: config_store.get_show_disk_total(),
                         show_disk_io: config_store.get_show_disk_io(),
                         show_network: config_store.get_show_network(),
                         selected_disk_ids,
-                    });
+                    }) {
+                        error!("send monitor request failed: {}", err);
+                    }
                 })
                 .is_err()
             {
@@ -252,7 +264,7 @@ pub fn start_monitor(view: &ui::AppWindow) {
 
             let weak = weak.clone();
             let selected_disk_ids = request.selected_disk_ids;
-            let _ = weak.upgrade_in_event_loop(move |ui| {
+            if let Err(err) = weak.upgrade_in_event_loop(move |ui| {
                 let runtime_store = ui.global::<ui::RuntimeStore>();
                 runtime_store.set_cpu_usage(cpu_usage);
                 runtime_store.set_memory_usage(memory_usage);
@@ -275,7 +287,9 @@ pub fn start_monitor(view: &ui::AppWindow) {
                 }
 
                 runtime_store.set_has_monitored_disks(has_monitored_disks);
-            });
+            }) {
+                error!("update monitor UI failed: {}", err);
+            }
 
             if !trimmed_after_start {
                 trimmed_after_start = true;

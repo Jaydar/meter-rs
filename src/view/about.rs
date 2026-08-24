@@ -77,10 +77,14 @@ impl ViewTrait for AboutView {
             about.close();
         });
         self.ui.on_open_github(|| {
-            let _ = Command::new("cmd")
+            tracing::info!("Windows command: cmd /C start {}", _github_url);
+            if let Err(err) = Command::new("cmd")
                 .creation_flags(_create_no_window)
                 .args(["/C", "start", "", _github_url])
-                .spawn();
+                .spawn()
+            {
+                tracing::error!("open GitHub failed: {}", err);
+            }
         });
         self
     }

@@ -1,6 +1,7 @@
 use std::{
     fs::{File, OpenOptions},
     io::{self, Write},
+    path::PathBuf,
     sync::{Arc, Mutex, OnceLock},
 };
 
@@ -15,6 +16,7 @@ use time::macros::{format_description, offset};
 
 struct FileWriter {
     file: Arc<Mutex<Option<File>>>,
+    path: PathBuf,
 }
 
 impl Write for FileWriter {
@@ -25,7 +27,7 @@ impl Write for FileWriter {
                 OpenOptions::new()
                     .create(true)
                     .append(true)
-                    .open("meter-rs.log")?,
+                    .open(&self.path)?,
             );
         }
         if let Some(file) = file.as_mut() {
@@ -56,6 +58,10 @@ pub fn init() {
         });
 
         let file = Arc::new(Mutex::new(None));
+        let log_path = std::env::current_exe()
+            .ok()
+            .and_then(|path| path.parent().map(|path| path.join("meter-rs.log")))
+            .unwrap_or_else(|| PathBuf::from("meter-rs.log"));
 
         let time_fmt = OffsetTime::new(
             offset!(+8),
@@ -76,8 +82,8 @@ pub fn init() {
                     .with_timer(time_fmt)
                     .with_target(false)
                     .with_ansi(false)
-                    .with_writer(move || FileWriter { file: file.clone() })
-                    .with_filter(EnvFilter::new(level)),
+                    .with_writer(move || FileWriter { file: file.clone(), path: log_path.clone() })
+                    .with_filter(EnvFilter::new("trace")),
             );
 
         if let Err(err) = tracing::subscriber::set_global_default(subscriber) {
@@ -86,14 +92,16 @@ pub fn init() {
         }
 
         std::panic::set_hook(Box::new(|panic| {
+            let location = panic.location().map(|location| format!(" at {}:{}", location.file(), location.line())).unwrap_or_default();
             if let Some(message) = panic.payload().downcast_ref::<&str>() {
-                error!("{}", message);
+                error!("panic{}: {}", location, message);
                 return;
             }
             if let Some(message) = panic.payload().downcast_ref::<String>() {
-                error!("{}", message);
+                error!("panic{}: {}", location, message);
                 return;
             }
+            error!("panic{}: unknown payload", location);
         }));
     });
 }

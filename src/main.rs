@@ -70,12 +70,14 @@ fn run_app() -> Result<()> {
                     StateMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
                 };
 
-                let _ = SetProcessInformation(
+                if let Err(err) = SetProcessInformation(
                     handle,
                     ProcessPowerThrottling,
                     &mut throttling as *mut _ as *mut _,
                     std::mem::size_of::<PROCESS_POWER_THROTTLING_STATE>() as u32,
-                );
+                ) {
+                    error!("Failed to set process power throttling: {}", err);
+                }
             }
         }
     });
@@ -125,7 +127,8 @@ async fn main() -> Result<()> {
 
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(run_app)) {
         Ok(Ok(())) => Ok(()),
-        Ok(Err(_)) | Err(_) => {
+        Ok(Err(err)) => {
+            error!("application failed: {:#}", err);
             tools::close_pages();
             if std::env::var("SLINT_BACKEND").ok().as_deref() == Some("winit-software") {
                 return Ok(());
@@ -134,10 +137,34 @@ async fn main() -> Result<()> {
             let exe = std::env::current_exe()?;
             let args: Vec<String> = std::env::args().skip(1).collect();
 
-            Command::new(exe)
+            if let Err(err) = Command::new(exe)
                 .args(args)
                 .env("SLINT_BACKEND", "winit-software")
-                .spawn()?;
+                .spawn()
+            {
+                error!("restart application failed: {}", err);
+                return Err(err.into());
+            }
+            std::process::exit(0);
+        }
+        Err(panic) => {
+            error!("application panicked: {:?}", panic);
+            tools::close_pages();
+            if std::env::var("SLINT_BACKEND").ok().as_deref() == Some("winit-software") {
+                return Ok(());
+            }
+
+            let exe = std::env::current_exe()?;
+            let args: Vec<String> = std::env::args().skip(1).collect();
+
+            if let Err(err) = Command::new(exe)
+                .args(args)
+                .env("SLINT_BACKEND", "winit-software")
+                .spawn()
+            {
+                error!("restart application after panic failed: {}", err);
+                return Err(err.into());
+            }
             std::process::exit(0);
         }
     }

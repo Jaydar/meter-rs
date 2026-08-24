@@ -157,7 +157,7 @@ fn handle_menu_event(id: &str) {
         }
         "port_proxy" => {
             if tools::is_admin() {
-                if let Err(err) = ui::open_view::<PortProxyView>() {
+                if let Err(err) = ui::use_view::<PortProxyView>().show(None) {
                     error!("{}", err);
                 }
             } else if let Err(err) = tools::run_as_admin_open_page("port-proxy") {
