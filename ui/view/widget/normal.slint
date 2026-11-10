@@ -26,7 +26,10 @@ export component NormalWidget inherits Rectangle {
         return usage > 80 ? Theme.text-high : (usage > 50 ? Theme.text-mid : Theme.text-low);
     }
 
-    normal_mode := VerticalLayout {
+    normal_mode := FlexboxLayout {
+        flex-direction: FlexboxLayoutDirection.column;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: stretch;
         width: 200px;
         padding: 10px;
         spacing: 8px;
@@ -62,7 +65,10 @@ export component NormalWidget inherits Rectangle {
             width: 100%;
             height: normal_layout.preferred-height;
 
-            normal_layout := VerticalLayout {
+            normal_layout := FlexboxLayout {
+                flex-direction: FlexboxLayoutDirection.column;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: stretch;
                 spacing: 8px;
 
                 if (ConfigStore.show_hostname || ConfigStore.show_cpu || ConfigStore.show_memory || ConfigStore.show_disk_total): Rectangle {
@@ -71,7 +77,10 @@ export component NormalWidget inherits Rectangle {
                     border-radius: 8px;
                     background: Theme.card-bg;
 
-                    basic_card := VerticalLayout {
+                    basic_card := FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.column;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         padding-left: 10px;
                         padding-right: 10px;
                         padding-top: 10px;
@@ -85,19 +94,25 @@ export component NormalWidget inherits Rectangle {
                             letter-spacing: 2px;
                         }
 
-                        if (ConfigStore.show_cpu): HorizontalLayout {
+                        if (ConfigStore.show_cpu): FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
                             alignment: space-between;
                             Text { text: "CPU"; color: Theme.text; font-size: 9pt; }
                             Text { text: RuntimeStore.cpu_usage.to-fixed(1) + "%"; color: root.get_cpu_color(RuntimeStore.cpu_usage); font-size: 9pt; }
                         }
 
-                        if (ConfigStore.show_memory): HorizontalLayout {
+                        if (ConfigStore.show_memory): FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
                             alignment: space-between;
                             Text { text: "内存占用"; color: Theme.text; font-size: 9pt; }
                             Text { text: RuntimeStore.memory_usage.to-fixed(1) + "%"; color: root.get_mem_color(RuntimeStore.memory_usage); font-size: 9pt; }
                         }
 
-                        if (ConfigStore.show_disk_total): HorizontalLayout {
+                        if (ConfigStore.show_disk_total): FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
                             alignment: space-between;
                             Text { text: "磁盘占用"; color: Theme.text; font-size: 9pt; }
                             Text { text: RuntimeStore.disk_usage.to-fixed(1) + "%"; color: root.get_disk_color(RuntimeStore.disk_usage); font-size: 9pt; }
@@ -111,7 +126,10 @@ export component NormalWidget inherits Rectangle {
                     border-radius: 8px;
                     background: Theme.card-bg;
 
-                    disk_io_card := VerticalLayout {
+                    disk_io_card := FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.column;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         padding-left: 10px;
                         padding-right: 10px;
                         padding-top: 8px;
@@ -120,7 +138,10 @@ export component NormalWidget inherits Rectangle {
 
                         Text { text: "磁盘IO"; color: Theme.sub-title; font-size: 10pt; font-weight: 600; letter-spacing: 2px; }
 
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             spacing: 0px;
 
                             Rectangle {
@@ -128,7 +149,10 @@ export component NormalWidget inherits Rectangle {
                                 background: transparent;
                                 clip: true;
 
-                                VerticalLayout {
+                                FlexboxLayout {
+                                    flex-direction: FlexboxLayoutDirection.column;
+                                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                    alignment: stretch;
                                     padding-left: 2px;
                                     padding-right: 2px;
                                     spacing: 2px;
@@ -142,7 +166,10 @@ export component NormalWidget inherits Rectangle {
                                 background: transparent;
                                 clip: true;
 
-                                VerticalLayout {
+                                FlexboxLayout {
+                                    flex-direction: FlexboxLayoutDirection.column;
+                                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                    alignment: stretch;
                                     padding-left: 2px;
                                     padding-right: 2px;
                                     spacing: 2px;
@@ -160,7 +187,10 @@ export component NormalWidget inherits Rectangle {
                     border-radius: 8px;
                     background: Theme.card-bg;
 
-                    network_card := VerticalLayout {
+                    network_card := FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.column;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         padding-left: 10px;
                         padding-right: 10px;
                         padding-top: 8px;
@@ -169,7 +199,10 @@ export component NormalWidget inherits Rectangle {
 
                         Text { text: "网络"; color: Theme.sub-title; font-size: 10pt; letter-spacing: 2px; }
 
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             spacing: 0px;
 
                             Rectangle {
@@ -177,7 +210,10 @@ export component NormalWidget inherits Rectangle {
                                 background: transparent;
                                 clip: true;
 
-                                VerticalLayout {
+                                FlexboxLayout {
+                                    flex-direction: FlexboxLayoutDirection.column;
+                                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                    alignment: stretch;
                                     padding-left: 2px;
                                     padding-right: 2px;
                                     spacing: 2px;
@@ -191,7 +227,10 @@ export component NormalWidget inherits Rectangle {
                                 background: transparent;
                                 clip: true;
 
-                                VerticalLayout {
+                                FlexboxLayout {
+                                    flex-direction: FlexboxLayoutDirection.column;
+                                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                    alignment: stretch;
                                     padding-left: 2px;
                                     padding-right: 2px;
                                     spacing: 2px;
@@ -209,7 +248,10 @@ export component NormalWidget inherits Rectangle {
                     border-radius: 8px;
                     background: Theme.card-bg;
 
-                    monitored_disks_card := VerticalLayout {
+                    monitored_disks_card := FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.column;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         padding-left: 10px;
                         padding-right: 10px;
                         padding-top: 8px;
@@ -218,22 +260,33 @@ export component NormalWidget inherits Rectangle {
 
                         Text { text: "磁盘监控"; color: Theme.sub-title; font-size: 10pt; letter-spacing: 2px; }
 
-                        for disk in RuntimeStore.monitored_disks: VerticalLayout {
+                        for disk in RuntimeStore.monitored_disks: FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.column;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             spacing: 4px;
 
-                            HorizontalLayout {
+                            FlexboxLayout {
+                                flex-direction: FlexboxLayoutDirection.row;
+                                flex-wrap: FlexboxLayoutWrap.no-wrap;
                                 alignment: space-between;
                                 Text { text: disk.name; color: Theme.text; font-size: 9pt; }
                                 Text { text: disk.usage.to-fixed(1) + "%"; color: root.get_disk_color(disk.usage); font-size: 9pt; }
                             }
 
-                            HorizontalLayout {
+                            FlexboxLayout {
+                                flex-direction: FlexboxLayoutDirection.row;
+                                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                alignment: stretch;
                                 spacing: 5px;
 
                                 Rectangle {
                                     horizontal-stretch: 1;
                                     background: transparent;
-                                    HorizontalLayout {
+                                    FlexboxLayout {
+                                        flex-direction: FlexboxLayoutDirection.row;
+                                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                        alignment: stretch;
                                         spacing: 0px;
                                         Text { text: "R"; color: Theme.sub-title; font-size: 8.5pt; }
                                         Text { width: 56px; text: disk.read; color: Theme.text-low; font-size: 8.5pt; horizontal-alignment: right; }
@@ -248,7 +301,10 @@ export component NormalWidget inherits Rectangle {
                                 Rectangle {
                                     horizontal-stretch: 1;
                                     background: transparent;
-                                    HorizontalLayout {
+                                    FlexboxLayout {
+                                        flex-direction: FlexboxLayoutDirection.row;
+                                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                        alignment: stretch;
                                         spacing: 0px;
                                         Text { text: "W"; color: Theme.text-mid; font-size: 8.5pt; }
                                         Text { width: 56px; text: disk.write; color: Theme.text-low; font-size: 8.5pt; horizontal-alignment: right; }

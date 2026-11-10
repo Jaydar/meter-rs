@@ -96,13 +96,19 @@ export component TableViewColumn inherits Rectangle {
         width: parent.width - 11px;
     }
 
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: stretch;
         padding-left: root.header-padding-left;
         padding-right: root.header-padding-right;
         padding-top: root.header-padding-top;
         padding-bottom: root.header-padding-bottom;
 
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: stretch;
             horizontal-stretch: 1;
             @children
         }
@@ -164,7 +170,9 @@ export component TableViewCell inherits Rectangle {
     preferred-width: self.min-width;
     max-width: column.width >= 1px ? max(column.min-width, column.width) : 100000px;
 
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
         width: 100%;
         height: 100%;
         alignment: center;
@@ -181,7 +189,7 @@ export component TableViewRow inherits Rectangle {
     callback pointer-event(event: PointerEvent, position: Point);
 
     min-width: layout.min-width;
-    min-height: max(root.row-height, layout.min-height);
+    min-height: root.row-height;
     horizontal-stretch: 1;
     border-radius: 4px;
     background: root.even ? TablePalette.control-background : Colors.transparent;
@@ -209,7 +217,10 @@ export component TableViewRow inherits Rectangle {
         }
     }
 
-    layout := HorizontalLayout {
+    layout := FlexboxLayout {
+        flex-direction: FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: stretch;
         width: 100%;
         @children
     }
@@ -309,13 +320,19 @@ export component CenteredTableView {
     forward-focus: focus-scope;
     accessible-role: table;
 
-    VerticalLayout {
+    FlexboxLayout {
+        flex-direction: FlexboxLayoutDirection.column;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: stretch;
         Rectangle {
             clip: true;
             vertical-stretch: 0;
             min-height: header-layout.min-height;
 
-            header-layout := HorizontalLayout {
+            header-layout := FlexboxLayout {
+                flex-direction: FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: stretch;
                 width: max(self.preferred-width, parent.width);
                 x: root.custom-body ? custom-body-layout.content-x : scroll-view.content-x;
                 min-height: root.header-height;
@@ -394,7 +411,9 @@ export component CenteredTableView {
                     max-width: (index < columns.length && column.width >= 1px) ? max(column.min-width, column.width) : 100000px;
                     background: cell-background != Colors.transparent ? cell-background : column.body.background;
 
-                    if (root.action-icons.length > 0 && index == root.columns.length - 1) : HorizontalLayout {
+                    if (root.action-icons.length > 0 && index == root.columns.length - 1) : FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
                         alignment: center;
                         spacing: column.body.action-spacing;
 
@@ -411,7 +430,10 @@ export component CenteredTableView {
                     }
 
                     if (root.action-icons.length == 0 || index != root.columns.length - 1) : Rectangle {
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             padding-left: column.body.padding-left;
                             padding-right: column.body.padding-right;
                             padding-top: column.body.padding-top;
@@ -441,9 +463,11 @@ export component CenteredTableView {
             vertical-scrollbar-policy: as-needed;
             horizontal-scrollbar-policy: as-needed;
 
-            body-layout := VerticalLayout {
+            body-layout := FlexboxLayout {
+                flex-direction: FlexboxLayoutDirection.column;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: start;
-                width: max(self.preferred-width, parent.width);
+                width: max(header-layout.preferred-width, parent.width);
 
                 @children
             }

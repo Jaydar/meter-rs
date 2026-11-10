@@ -53,10 +53,16 @@ export component PortProxyWindow inherits Page {
         height: 100%;
         // background: Palette.background;
         border-radius: 10px;
-        VerticalLayout {
+        FlexboxLayout {
+            flex-direction: FlexboxLayoutDirection.column;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: stretch;
             padding: 12px;
             spacing: 8px;
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: stretch;
                 Text {
                     horizontal-stretch: 1;
                     text: root.port_proxies.length + " 条转发规则";
@@ -80,7 +86,10 @@ export component PortProxyWindow inherits Page {
                 height: 1px;
             }
 
-            VerticalLayout {
+            FlexboxLayout {
+                flex-direction: FlexboxLayoutDirection.column;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: stretch;
                 vertical-stretch: 1;
                 spacing: 4px;
                 Rectangle {
@@ -142,7 +151,9 @@ export component PortProxyWindow inherits Page {
                             for column[ci] in table.columns : TableViewCell {
                                 column: column;
 
-                                if (ci == table.columns.length - 1) : HorizontalLayout {
+                                if (ci == table.columns.length - 1) : FlexboxLayout {
+                                    flex-direction: FlexboxLayoutDirection.row;
+                                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                                     width: 100%;
                                     height: 100%;
                                     alignment: center;
@@ -204,7 +215,10 @@ export component PortProxyWindow inherits Page {
                 background: Palette.background;
                 border-width: 1px;
                 border-color: Palette.border;
-                VerticalLayout {
+                FlexboxLayout {
+                    flex-direction: FlexboxLayoutDirection.column;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: stretch;
                     padding: 14px;
                     spacing: 10px;
                     Text {
@@ -217,7 +231,10 @@ export component PortProxyWindow inherits Page {
                         vertical-stretch: 1;
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
                         Rectangle {
                             horizontal-stretch: 1;
@@ -252,7 +269,10 @@ export component PortProxyWindow inherits Page {
                 background: Palette.background;
                 border-width: 1px;
                 border-color: Palette.border;
-                VerticalLayout {
+                FlexboxLayout {
+                    flex-direction: FlexboxLayoutDirection.column;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: stretch;
                     padding: 14px;
                     spacing: 10px;
                     Text {
@@ -265,7 +285,10 @@ export component PortProxyWindow inherits Page {
                         vertical-stretch: 1;
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
                         Rectangle {
                             horizontal-stretch: 1;
@@ -301,10 +324,16 @@ export component PortProxyWindow inherits Page {
                 background: Palette.background;
                 border-width: 1px;
                 border-color: Palette.border;
-                VerticalLayout {
+                FlexboxLayout {
+                    flex-direction: FlexboxLayoutDirection.column;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: stretch;
                     padding: 14px;
                     spacing: 10px;
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         Text {
                             text: root.edit_mode ? "修改端口转发" : "新增端口转发";
                             font-size: 11pt;
@@ -322,7 +351,10 @@ export component PortProxyWindow inherits Page {
                         }
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
                         Text {
                             width: 68px;
@@ -339,7 +371,10 @@ export component PortProxyWindow inherits Page {
                         }
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
                         Text {
                             width: 68px;
@@ -356,7 +391,10 @@ export component PortProxyWindow inherits Page {
                         }
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
                         Text {
                             width: 68px;
@@ -373,7 +411,10 @@ export component PortProxyWindow inherits Page {
                         }
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
                         Text {
                             width: 68px;
@@ -390,7 +431,10 @@ export component PortProxyWindow inherits Page {
                         }
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
                         Text {
                             width: 68px;
@@ -410,7 +454,10 @@ export component PortProxyWindow inherits Page {
                         vertical-stretch: 1;
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         Rectangle {
                             horizontal-stretch: 1;
                         }
@@ -444,7 +491,10 @@ export component PortProxyWindow inherits Page {
                 background: Palette.background;
                 border-width: 1px;
                 border-color: Palette.border;
-                VerticalLayout {
+                FlexboxLayout {
+                    flex-direction: FlexboxLayoutDirection.column;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: stretch;
                     padding: 14px;
                     spacing: 10px;
                     Text {
@@ -457,7 +507,10 @@ export component PortProxyWindow inherits Page {
                         vertical-stretch: 1;
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         Rectangle {
                             horizontal-stretch: 1;
                         }

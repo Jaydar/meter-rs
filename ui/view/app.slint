@@ -28,7 +28,10 @@ export component AppWindow inherits Window {
     callback win_move(length, length);
     callback win_move_up();
 
-    content := VerticalLayout {
+    content := FlexboxLayout {
+        flex-direction: FlexboxLayoutDirection.column;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: stretch;
         if (ConfigStore.display_mode == DisplayMode.simple || ConfigStore.display_mode == DisplayMode.taskbar): SimpleWidget {
             win_move(x, y) => {
                 root.win_move(x, y);

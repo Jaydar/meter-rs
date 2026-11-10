@@ -36,33 +36,50 @@ export component MacAddressWindow inherits Page {
         Rectangle {
             width: 100%;
 
-            VerticalLayout {
+            FlexboxLayout {
+                flex-direction: FlexboxLayoutDirection.column;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: start;
                 padding: 12px;
                 spacing: 10px;
 
-                VerticalLayout {
+                FlexboxLayout {
+                    flex-direction: FlexboxLayoutDirection.column;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: stretch;
                     spacing: 8px;
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
                         Text { width: 70px; text: "网卡: "; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
                         ComboBox { model: root.adapter_names; current-index <=> root.selected_index; enabled: root.adapters.length > 0; }
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
                         Text { width: 70px; text: "当前 MAC: "; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
                         LineEdit { text: root.current_mac; read-only: true; }
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
                         Text { width: 70px; text: "原始 MAC: "; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
                         LineEdit { text: root.original_mac; }
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
                         Text { width: 70px; text: "修改 MAC: "; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
                         LineEdit { text <=> root.new_mac; placeholder-text: "00-00-00-00-00-00"; }
@@ -71,7 +88,10 @@ export component MacAddressWindow inherits Page {
 
                 Rectangle { height: 1px; }
 
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: stretch;
                     Rectangle { horizontal-stretch: 1; background: transparent; }
                     Button {
                         height: 26px;
@@ -98,7 +118,10 @@ export component MacAddressWindow inherits Page {
                     border-width: 1px;
                     border-color: Palette.border;
 
-                    VerticalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.column;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         padding: 14px;
                         spacing: 10px;
 
@@ -111,7 +134,10 @@ export component MacAddressWindow inherits Page {
 
                         Rectangle { vertical-stretch: 1; background: transparent; }
 
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             spacing: 8px;
 
                             Rectangle { horizontal-stretch: 1; background: transparent; }

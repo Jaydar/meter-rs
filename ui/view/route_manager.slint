@@ -58,11 +58,17 @@ export component RouteManagerWindow inherits Page {
             border-radius: 10px;
             background: Palette.background;
 
-            VerticalLayout {
+            FlexboxLayout {
+                flex-direction: FlexboxLayoutDirection.column;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: stretch;
                 padding: 12px;
                 spacing: 8px;
 
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: stretch;
                     Text {
                         horizontal-stretch: 1;
                         text: root.routes.length + " 条路由";
@@ -84,7 +90,10 @@ export component RouteManagerWindow inherits Page {
                 Rectangle {
                     height: 30px;
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 4px;
                         Button {
                             text: "V4 永久路由";
@@ -112,7 +121,10 @@ export component RouteManagerWindow inherits Page {
                     }
                 }
 
-                VerticalLayout {
+                FlexboxLayout {
+                    flex-direction: FlexboxLayoutDirection.column;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: stretch;
                     vertical-stretch: 1;
                     spacing: 4px;
 
@@ -172,7 +184,9 @@ export component RouteManagerWindow inherits Page {
                                 for column[ci] in table.columns : TableViewCell {
                                     column: column;
 
-                                    if (ci == table.columns.length - 1) : HorizontalLayout {
+                                    if (ci == table.columns.length - 1) : FlexboxLayout {
+                                        flex-direction: FlexboxLayoutDirection.row;
+                                        flex-wrap: FlexboxLayoutWrap.no-wrap;
                                         width: 100%;
                                         height: 100%;
                                         alignment: center;
@@ -220,7 +234,10 @@ export component RouteManagerWindow inherits Page {
                     border-width: 1px;
                     border-color: Palette.border;
 
-                    VerticalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.column;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         padding: 14px;
                         spacing: 10px;
 
@@ -235,7 +252,10 @@ export component RouteManagerWindow inherits Page {
                             background: transparent;
                         }
 
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             spacing: 8px;
                             Rectangle {
                                 horizontal-stretch: 1;
@@ -274,11 +294,17 @@ export component RouteManagerWindow inherits Page {
                     border-width: 1px;
                     border-color: Palette.border;
 
-                    VerticalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.column;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         padding: 14px;
                         spacing: 10px;
 
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             Text {
                                 text: "新增路由";
                                 font-size: 11pt;
@@ -296,7 +322,10 @@ export component RouteManagerWindow inherits Page {
                             }
                         }
 
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             spacing: 8px;
                             Text {
                                 width: 48px;
@@ -313,7 +342,10 @@ export component RouteManagerWindow inherits Page {
                             }
                         }
 
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             spacing: 8px;
                             Text {
                                 width: 48px;
@@ -336,7 +368,10 @@ export component RouteManagerWindow inherits Page {
                                     clicked => { root.add_adapter_menu_visible = !root.add_adapter_menu_visible; }
                                 }
 
-                                HorizontalLayout {
+                                FlexboxLayout {
+                                    flex-direction: FlexboxLayoutDirection.row;
+                                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                    alignment: stretch;
                                     padding-left: 8px;
                                     padding-right: 8px;
                                     Text {
@@ -358,7 +393,10 @@ export component RouteManagerWindow inherits Page {
                             }
                         }
 
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             spacing: 8px;
                             Text {
                                 width: 48px;
@@ -375,7 +413,10 @@ export component RouteManagerWindow inherits Page {
                             }
                         }
 
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             spacing: 8px;
                             Text {
                                 width: 48px;
@@ -396,7 +437,10 @@ export component RouteManagerWindow inherits Page {
                             vertical-stretch: 1;
                         }
 
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             Rectangle {
                                 horizontal-stretch: 1;
                             }
@@ -472,7 +516,10 @@ export component RouteManagerWindow inherits Page {
                     border-width: 1px;
                     border-color: Palette.border;
 
-                    VerticalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.column;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         padding: 14px;
                         spacing: 10px;
 
@@ -487,7 +534,10 @@ export component RouteManagerWindow inherits Page {
                             vertical-stretch: 1;
                         }
 
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             Rectangle {
                                 horizontal-stretch: 1;
                             }
