@@ -9,7 +9,11 @@ import {
 import { PortProxyEntry } from "../runtime_store.slint";
 import { Page } from "widget/page.slint";
 import { IconButton } from "widget/icon_button.slint";
-import { CenteredTableView, TableViewCell, TableViewRow } from "widget/table_view.slint";
+import {
+    CenteredTableView,
+    TableViewCell,
+    TableViewRow,
+} from "widget/table_view.slint";
 
 export component PortProxyWindow inherits Page {
     title: "端口转发";
@@ -48,7 +52,7 @@ export component PortProxyWindow inherits Page {
     callback delete_port_proxy(string, string, string);
     callback reset_port_proxies();
 
-    content:= Rectangle {
+    content := Rectangle {
         width: 100%;
         height: 100%;
         // background: Palette.background;
@@ -141,17 +145,17 @@ export component PortProxyWindow inherits Page {
                         current-row <=> root.current_row;
                         custom-body: true;
 
-                        for proxy[idx] in root.port_proxies : TableViewRow {
+                        for proxy[idx] in root.port_proxies: TableViewRow {
                             selected: idx == table.current-row;
                             even: mod(idx, 2) == 0;
                             row-height: 34px;
 
                             clicked => { table.set-current-row(idx); }
 
-                            for column[ci] in table.columns : TableViewCell {
+                            for column[ci] in table.columns: TableViewCell {
                                 column: column;
 
-                                if (ci == table.columns.length - 1) : FlexboxLayout {
+                                if (ci == table.columns.length - 1): FlexboxLayout {
                                     flex-direction: FlexboxLayoutDirection.row;
                                     flex-wrap: FlexboxLayoutWrap.no-wrap;
                                     width: 100%;
@@ -188,7 +192,7 @@ export component PortProxyWindow inherits Page {
                                         }
                                     }
                                 }
-                                if (ci != table.columns.length - 1) : Text {
+                                if (ci != table.columns.length - 1): Text {
                                     horizontal-stretch: 1;
                                     height: 100%;
                                     vertical-alignment: center;

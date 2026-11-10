@@ -14,6 +14,7 @@ export component SimpleWidget inherits Rectangle {
 
     callback win_move(length, length);
     callback win_move_up();
+    callback show_context_menu();
 
     function get_cpu_color(usage: float) -> color {
         return usage > 50 ? Theme.text-high : (usage > 20 ? Theme.text-mid : Theme.text-low);
@@ -43,6 +44,10 @@ export component SimpleWidget inherits Rectangle {
             pointer-event(event) => {
                 if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
                     root.win_move_up();
+                }
+
+                if (event.button == PointerEventButton.right && event.kind == PointerEventKind.up) {
+                    root.show_context_menu();
                 }
             }
 

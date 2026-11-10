@@ -152,6 +152,8 @@ impl ViewTrait for AppView {
             }
         });
 
+        self.ui.on_show_context_menu(|| base::tray::show_context_menu());
+
         self
     }
 

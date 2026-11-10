@@ -27,6 +27,7 @@ export component AppWindow inherits Window {
 
     callback win_move(length, length);
     callback win_move_up();
+    callback show_context_menu();
 
     content := FlexboxLayout {
         flex-direction: FlexboxLayoutDirection.column;
@@ -40,6 +41,10 @@ export component AppWindow inherits Window {
             win_move_up => {
                 root.win_move_up();
             }
+
+            show_context_menu => {
+                root.show_context_menu();
+            }
         }
 
         if (ConfigStore.display_mode == DisplayMode.normal): NormalWidget {
@@ -49,6 +54,10 @@ export component AppWindow inherits Window {
 
             win_move_up => {
                 root.win_move_up();
+            }
+
+            show_context_menu => {
+                root.show_context_menu();
             }
         }
     }

@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use muda::{CheckMenuItem, IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
+use muda::{CheckMenuItem, ContextMenu, IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use slint::{ComponentHandle, Model, ModelRc};
 use tracing::error;
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
@@ -267,6 +267,19 @@ fn disk_menu(runtime_store: &ui::RuntimeStore) -> Submenu {
     }
     let refs = items.iter().map(|item| item as &dyn IsMenuItem).collect::<Vec<_>>();
     Submenu::with_items("磁盘监控", true, &refs).unwrap()
+}
+
+pub(crate) fn show_context_menu() {
+    let hwnd = _main_hwnd.load(std::sync::atomic::Ordering::Relaxed);
+    if hwnd == 0 {
+        return;
+    }
+
+    apply_windows_menu_theme(ui::use_view::<view::AppView>().ui.global::<ui::ConfigStore>().get_theme_mode());
+    let menu = build_menu();
+    unsafe {
+        menu.show_context_menu_for_hwnd(hwnd as isize, None);
+    }
 }
 
 fn sync_tray() {
