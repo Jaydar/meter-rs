@@ -12,8 +12,12 @@ pub struct AppView {
 }
 
 impl AppView {
-    pub fn init_backend() -> Result<()> {
-        i_slint_backend_selector::api::BackendSelector::new().with_winit_window_attributes_hook(|attr| attr.with_skip_taskbar(true)).select()?;
+    pub fn init_backend(is_app: bool) -> Result<()> {
+        let mut backend = i_slint_backend_selector::api::BackendSelector::new();
+        if is_app {
+            backend = backend.with_winit_window_attributes_hook(|attr| attr.with_skip_taskbar(true));
+        }
+        backend.select()?;
         Ok(())
     }
 }
@@ -61,6 +65,10 @@ impl ViewTrait for AppView {
                 let hwnd = _main_hwnd.load(Ordering::Relaxed);
                 if hwnd == 0 {
                     return;
+                }
+
+                if ui.global::<ui::ConfigStore>().get_mouse_passthrough() {
+                    tools::set_mouse_passthrough(hwnd, true);
                 }
 
                 if let Some((wa_left, wa_top, wa_right, wa_bottom)) = tools::get_work_area(hwnd) {

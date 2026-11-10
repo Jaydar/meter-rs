@@ -90,6 +90,6 @@ pub fn use_view<T: 'static + ViewTrait>() -> &'static T {
 }
 
 #[allow(dead_code)]
-pub fn open_view<T: ViewTrait>() -> anyhow::Result<()> {
-    T::new().show(None)
+pub fn open_view<T: 'static + ViewTrait>() -> anyhow::Result<()> {
+    use_view::<T>().show(None)
 }

@@ -10,6 +10,7 @@ pub struct MacAddressView {
 }
 
 impl ViewTrait for MacAddressView {
+
     fn new() -> Self {
         let ui = match ui::MacAddressWindow::new().context("create MacAddressWindow failed") {
             Ok(ui) => ui,
@@ -27,6 +28,7 @@ impl ViewTrait for MacAddressView {
         self.ui.set_loading_visible(true);
         let _ = self.ui.show();
         self.set_position();
+        super::setup_page_window(&self.ui);
         let weak = self.ui.as_weak();
         let _ = tokio::spawn(async move {
             let adapters = tools::network_adapters_async().await;
@@ -81,16 +83,11 @@ impl ViewTrait for MacAddressView {
     }
 
     fn bind_event(self) -> Self {
-        self.ui.on_win_move(|delta_x, delta_y| {
-            let mac_view = ui::use_view::<crate::view::MacAddressView>();
-            let window = mac_view.ui.window();
-            let scale_factor = window.scale_factor();
-            let logical_pos = window.position().to_logical(scale_factor);
-            window.set_position(slint::LogicalPosition::new(logical_pos.x + delta_x, logical_pos.y + delta_y));
-        });
-        self.ui.on_close_mac_address(|| {
-            let mac_view = ui::use_view::<crate::view::MacAddressView>();
-            mac_view.hide();
+        self.ui.window().on_close_requested(|| {
+            if std::env::args().any(|arg| arg == "--page") {
+                std::process::exit(0);
+            }
+            slint::CloseRequestResponse::HideWindow
         });
         self.ui.on_apply_mac_address(|adapter_id, original_mac, new_mac| {
             let weak = ui::use_view::<crate::view::MacAddressView>().ui.as_weak();

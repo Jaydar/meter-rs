@@ -35,7 +35,7 @@ export component NormalWidget inherits Rectangle {
             width: 100%;
             height: title_text.preferred-height;
 
-            mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
+            mouse-cursor: MouseCursor.move;
 
             moved => {
                 root.win_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
@@ -61,7 +61,6 @@ export component NormalWidget inherits Rectangle {
         TouchArea {
             width: 100%;
             height: normal_layout.preferred-height;
-            mouse-cursor: MouseCursor.default;
 
             normal_layout := VerticalLayout {
                 spacing: 8px;

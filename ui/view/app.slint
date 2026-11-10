@@ -12,9 +12,8 @@ export { AboutWindow, MacAddressWindow, PortProxyWindow, RouteManagerWindow, Con
 
 export component AppWindow inherits Window {
     title: "Meter RS";
-
     always-on-top: root.always_on_top_state;
-
+    icon: @image-url("../assets/icon.svg");
     no-frame: true;
     background: transparent;
     default-font-size: Theme.font-size;

@@ -35,7 +35,7 @@ export component SimpleWidget inherits Rectangle {
 
         TouchArea {
             height: root.height;
-            mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
+            mouse-cursor: MouseCursor.move;
 
             pointer-event(event) => {
                 if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {

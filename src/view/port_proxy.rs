@@ -26,6 +26,7 @@ impl ViewTrait for PortProxyView {
         self.ui.set_loading_visible(true);
         let _ = self.ui.show();
         self.set_position();
+        super::setup_page_window(&self.ui);
         let weak = self.ui.as_weak();
         let _ = tokio::spawn(async move {
             let port_proxies = tools::port_proxies_async().await;
@@ -34,7 +35,10 @@ impl ViewTrait for PortProxyView {
                     return;
                 };
                 match port_proxies {
-                    Ok(port_proxies) => ui.set_port_proxies(ModelRc::from(port_proxies.iter().map(|port_proxy| ui::PortProxyEntry { proxy_type: port_proxy.proxy_type.clone().into(), listen_address: port_proxy.listen_address.clone().into(), listen_port: port_proxy.listen_port.clone().into(), connect_address: port_proxy.connect_address.clone().into(), connect_port: port_proxy.connect_port.clone().into() }).collect::<Vec<_>>().as_slice())),
+                    Ok(port_proxies) => {
+                        PortProxyView::set_proxy_models(&ui, &port_proxies);
+                        ui.set_current_row(-1);
+                    }
                     Err(err) => {
                         error!("load port proxies failed: {}", err);
                         ui.set_status_text(format!("读取端口转发失败: {err}").into());
@@ -63,13 +67,12 @@ impl ViewTrait for PortProxyView {
     }
 
     fn bind_event(self) -> Self {
-        self.ui.on_win_move(|delta_x, delta_y| {
-            let port_proxy_view = ui::use_view::<crate::view::PortProxyView>();
-            let window = port_proxy_view.ui.window();
-            let logical_pos = window.position().to_logical(window.scale_factor());
-            window.set_position(slint::LogicalPosition::new(logical_pos.x + delta_x, logical_pos.y + delta_y));
+        self.ui.window().on_close_requested(|| {
+            if std::env::args().any(|arg| arg == "--page") {
+                std::process::exit(0);
+            }
+            slint::CloseRequestResponse::HideWindow
         });
-        self.ui.on_close_port_proxy(|| ui::use_view::<crate::view::PortProxyView>().hide());
         self.ui.on_add_port_proxy(|proxy_type, listen_address, listen_port, connect_address, connect_port| {
             let weak = ui::use_view::<crate::view::PortProxyView>().ui.as_weak();
             let _ = tokio::spawn(async move {
@@ -142,7 +145,10 @@ impl ViewTrait for PortProxyView {
                 let _ = slint::invoke_from_event_loop(move || {
                     let Some(ui) = weak.upgrade() else { return; };
                     match result {
-                        Ok(()) => ui.set_port_proxies(ModelRc::from([].as_slice())),
+                        Ok(()) => {
+                            PortProxyView::set_proxy_models(&ui, &[]);
+                            ui.set_current_row(-1);
+                        }
                         Err(err) => {
                             error!("reset port proxies failed: {}", err);
                             ui.set_status_text(format!("清理失败: {err}").into());
@@ -160,12 +166,20 @@ impl ViewTrait for PortProxyView {
 }
 
 impl PortProxyView {
+    fn set_proxy_models(ui: &ui::PortProxyWindow, port_proxies: &[tools::PortProxyEntry]) {
+        ui.set_port_proxies(ModelRc::from(port_proxies.iter().map(|port_proxy| ui::PortProxyEntry { proxy_type: port_proxy.proxy_type.clone().into(), listen_address: port_proxy.listen_address.clone().into(), listen_port: port_proxy.listen_port.clone().into(), connect_address: port_proxy.connect_address.clone().into(), connect_port: port_proxy.connect_port.clone().into() }).collect::<Vec<_>>().as_slice()));
+    }
+
     fn update_port_proxies(ui: &ui::PortProxyWindow, port_proxies: Result<Vec<tools::PortProxyEntry>>) {
         match port_proxies {
-            Ok(port_proxies) => ui.set_port_proxies(ModelRc::from(port_proxies.iter().map(|port_proxy| ui::PortProxyEntry { proxy_type: port_proxy.proxy_type.clone().into(), listen_address: port_proxy.listen_address.clone().into(), listen_port: port_proxy.listen_port.clone().into(), connect_address: port_proxy.connect_address.clone().into(), connect_port: port_proxy.connect_port.clone().into() }).collect::<Vec<_>>().as_slice())),
+            Ok(port_proxies) => {
+                Self::set_proxy_models(ui, &port_proxies);
+                ui.set_current_row(-1);
+            }
             Err(err) => {
                 error!("load port proxies failed: {}", err);
-                ui.set_port_proxies(ModelRc::from([].as_slice()));
+                PortProxyView::set_proxy_models(ui, &[]);
+                ui.set_current_row(-1);
                 ui.set_status_text(format!("读取端口转发失败: {err}").into());
             }
         }

@@ -18,7 +18,7 @@ use windows::Win32::{
     },
     UI::{
         Shell::{IsUserAnAdmin, ShellExecuteW},
-        WindowsAndMessaging::{FindWindowW, GWL_EXSTYLE, GetCursorPos, GetWindowLongPtrW, GetWindowRect, HWND_BROADCAST, SC_MONITORPOWER, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_SHOWNORMAL, SendMessageW, SetWindowLongPtrW, SetWindowPos, WM_SYSCOMMAND, WS_EX_LAYERED, WS_EX_TRANSPARENT},
+        WindowsAndMessaging::{FindWindowW, GWL_EXSTYLE, GetCursorPos, GetWindowLongPtrW, GetWindowRect, HWND_BROADCAST, HWND_NOTOPMOST, HWND_TOPMOST, SC_MONITORPOWER, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, SW_SHOWNORMAL, SendMessageW, SetWindowLongPtrW, SetWindowPos, WM_SYSCOMMAND, WS_EX_LAYERED, WS_EX_TRANSPARENT},
     },
 };
 use windows::core::{HSTRING, w};
@@ -316,6 +316,12 @@ pub fn is_admin() -> bool {
     unsafe { IsUserAnAdmin().as_bool() }
 }
 
+pub fn open_page(page: &str) -> Result<()> {
+    let exe = env::current_exe().context("get current exe failed")?;
+    Command::new(exe).arg("--page").arg(page).spawn().context("open page failed")?;
+    Ok(())
+}
+
 pub fn run_as_admin_open_page(page: &str) -> Result<()> {
     let exe = env::current_exe().context("get current exe failed")?;
     let file = HSTRING::from(exe.to_string_lossy().as_ref());
@@ -359,6 +365,19 @@ pub fn close_when_parent_exit(parent_pid: u32) {
             error!("quit event loop after parent exit failed: {}", err);
         }
     });
+}
+
+/// 使用 Windows 原生 API 设置窗口置顶状态。
+pub fn set_window_topmost<C: ComponentHandle>(view: &C, enable: bool) {
+    let Some(hwnd) = get_hwnd_by_window_handle(view) else {
+        return;
+    };
+    let insert_after = if enable { HWND_TOPMOST } else { HWND_NOTOPMOST };
+    unsafe {
+        if let Err(err) = SetWindowPos(hwnd, Some(insert_after), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW) {
+            error!("SetWindowPos topmost failed: {}", err);
+        }
+    }
 }
 
 pub fn close_when_event_set(close_event: String) {

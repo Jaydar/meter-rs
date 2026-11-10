@@ -18,25 +18,15 @@ mod ui;
 mod view;
 
 pub use base::{hook, log, task, tools, tray};
-use crate::view::ViewTrait;
+use crate::{base::cli::{self, PageEnum}, view::ViewTrait};
 
 pub static _main_hwnd: AtomicUsize = AtomicUsize::new(0);
 
-struct AdminPage {
-    name: &'static str,
-    show: fn() -> Result<()>,
-}
-
-const _admin_pages: &[AdminPage] = &[
-    AdminPage { name: "mac", show: || ui::use_view::<view::MacAddressView>().show(None) },
-    AdminPage { name: "route", show: || ui::use_view::<view::RouteManagerView>().show(None) },
-    AdminPage { name: "port-proxy", show: || ui::use_view::<view::PortProxyView>().show(None) },
-];
-
-fn run_app() -> Result<()> {
-    let admin_page = current_admin_page();
-    let parent_pid = parent_pid_arg();
-    let close_event = arg_value("--close-event");
+fn run_app(args: cli::Args) -> Result<()> {
+    let is_app = args.page.is_none();
+    if let Some(close_event) = args.close_event {
+        tools::close_when_event_set(close_event);
+    }
     hook::install_win32_hook(move |_n_code: i32, w_param: WPARAM, _l_param: LPARAM| {
         // 获取窗口句柄
         let hwnd = HWND(w_param.0 as _);
@@ -49,7 +39,7 @@ fn run_app() -> Result<()> {
             let hwnd = hwnd.0 as usize;
             hook::uninstall_win32_hook();
             _main_hwnd.store(hwnd, Ordering::Release);
-            if admin_page.is_none() {
+            if is_app {
                 tray::setup(hwnd);
             }
 
@@ -81,17 +71,16 @@ fn run_app() -> Result<()> {
             }
         }
     });
-    view::AppView::init_backend()?;
-    if let Some(admin_page) = admin_page {
-        if let Some(parent_pid) = parent_pid {
-            tools::close_when_parent_exit(parent_pid);
-        }
-        if let Some(close_event) = close_event {
-            tools::close_when_event_set(close_event);
-        }
+    view::AppView::init_backend(is_app)?;
+    if let Some(page) = args.page {
         let app = ui::use_view::<view::AppView>();
         base::config::load(&app.ui);
-        (admin_page.show)()?;
+        match page {
+            PageEnum::Mac => ui::use_view::<view::MacAddressView>().show(None)?,
+            PageEnum::Route => ui::use_view::<view::RouteManagerView>().show(None)?,
+            PageEnum::PortProxy => ui::use_view::<view::PortProxyView>().show(None)?,
+            PageEnum::About => ui::use_view::<view::AboutView>().show(None)?,
+        }
         slint::run_event_loop()?;
         return Ok(());
     }
@@ -102,30 +91,12 @@ fn run_app() -> Result<()> {
     Ok(())
 }
 
-fn current_admin_page() -> Option<&'static AdminPage> {
-    let page_name = arg_value("--page")?;
-    _admin_pages.iter().find(|page| page.name == page_name)
-}
-
-fn parent_pid_arg() -> Option<u32> {
-    arg_value("--parent-pid")?.parse().ok()
-}
-
-fn arg_value(name: &str) -> Option<String> {
-    let mut args = std::env::args();
-    while let Some(arg) = args.next() {
-        if arg == name {
-            return args.next();
-        }
-    }
-    None
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     log::init();
+    let args = base::cli::parse(std::env::args().skip(1))?;
 
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(run_app)) {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run_app(args))) {
         Ok(Ok(())) => Ok(()),
         Ok(Err(err)) => {
             error!("application failed: {:#}", err);
