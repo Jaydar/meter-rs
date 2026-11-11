@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use muda::{CheckMenuItem, ContextMenu, IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
+use tray_icon::menu::{CheckMenuItem, ContextMenu, IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use slint::{ComponentHandle, Model, ModelRc};
 use tracing::error;
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
