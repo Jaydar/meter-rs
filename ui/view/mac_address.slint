@@ -1,15 +1,12 @@
-import "../assets/remixicon.ttf";
-import { Button, ComboBox, LineEdit, Spinner } from "std-widgets.slint";
+import { Button, ComboBox, LineEdit, Spinner, Palette } from "std-widgets.slint";
 import { NetworkAdapterEntry } from "../runtime_store.slint";
-import { Theme } from "../theme.slint";
 
-export component MacAddressWindow inherits Window {
-    width: 420px;
-    height: 292px;
-    background: transparent;
-    no-frame: true;
-    always-on-top: true;
-    default-font-size: 10pt;
+import { Page } from "widget/page.slint";
+
+export component MacAddressWindow inherits Page {
+    title: "修改 MAC 地址";
+    width: 360px;
+    height: root.preferred-height;
 
     in-out property <[NetworkAdapterEntry]> adapters: [];
     in-out property <[string]> adapter_names: [];
@@ -23,7 +20,6 @@ export component MacAddressWindow inherits Window {
     out property <string> current_mac: root.adapters.length > 0 && root.selected_index >= 0 && root.selected_index < root.adapters.length ? root.adapters[root.selected_index].current_mac : "";
     out property <string> selected_id: root.adapters.length > 0 && root.selected_index >= 0 && root.selected_index < root.adapters.length ? root.adapters[root.selected_index].id : "";
 
-    callback win_move(length, length);
     callback close_mac_address();
     callback apply_mac_address(string, string, string);
     callback restart_adapter(string);
@@ -32,95 +28,70 @@ export component MacAddressWindow inherits Window {
         root.original_mac = root.adapters.length > 0 && root.selected_index >= 0 && root.selected_index < root.adapters.length ? root.adapters[root.selected_index].mac : "";
     }
 
-    root_ta := TouchArea {
+    Rectangle {
         width: 100%;
-        height: 100%;
-        mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
 
-        moved => {
-            root.win_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
-        }
-
+        background: Palette.background;
+        border-radius: 10px;
         Rectangle {
             width: 100%;
-            height: 100%;
-            border-radius: 10px;
-            background: Theme.window-bg;
-            border-width: 1px;
-            border-color: Theme.menu-border;
-            drop-shadow-blur: 16px;
 
-            VerticalLayout {
+            FlexboxLayout {
+                flex-direction: FlexboxLayoutDirection.column;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: start;
                 padding: 12px;
                 spacing: 10px;
 
-                HorizontalLayout {
-                    Text {
-                        text: "修改 MAC 地址";
-                        color: Theme.title;
-                        font-size: 12pt;
-                        font-weight: 800;
-                    }
-
-
-
-                    close_btn := Rectangle {
-                        width: 24px;
-                        height: 24px;
-                        border-radius: 4px;
-                        background: close_ta.has-hover ? Theme.menu-hover-bg : transparent;
-
-                        close_ta := TouchArea {
-                            mouse-cursor: MouseCursor.pointer;
-                            clicked => { root.close_mac_address(); }
-                        }
-
-                        Text {
-                            width: 100%;
-                            height: 100%;
-                            text: "\u{eb99}";
-                            color: close_ta.has-hover ? Theme.menu-hover-fg : Theme.text;
-                            font-size: 14px;
-                            font-family: "remixicon";
-                            vertical-alignment: center;
-                            horizontal-alignment: center;
-                        }
-                    }
-                }
-
-                Rectangle { height: 1px; background: Theme.menu-border; }
-
-                VerticalLayout {
+                FlexboxLayout {
+                    flex-direction: FlexboxLayoutDirection.column;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: stretch;
                     spacing: 8px;
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
-                        Text { width: 70px; text: "网卡: "; color: Theme.text; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
+                        Text { width: 70px; text: "网卡: "; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
                         ComboBox { model: root.adapter_names; current-index <=> root.selected_index; enabled: root.adapters.length > 0; }
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
-                        Text { width: 70px; text: "当前 MAC: "; color: Theme.text; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
+                        Text { width: 70px; text: "当前 MAC: "; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
                         LineEdit { text: root.current_mac; read-only: true; }
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
-                        Text { width: 70px; text: "原始 MAC: "; color: Theme.text; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
+                        Text { width: 70px; text: "原始 MAC: "; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
                         LineEdit { text: root.original_mac; }
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         spacing: 8px;
-                        Text { width: 70px; text: "修改 MAC: "; color: Theme.text; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
+                        Text { width: 70px; text: "修改 MAC: "; font-size: 10pt; vertical-alignment: center; horizontal-alignment: right; }
                         LineEdit { text <=> root.new_mac; placeholder-text: "00-00-00-00-00-00"; }
                     }
                 }
 
-                Rectangle { height: 1px; background: Theme.menu-border; }
+                Rectangle { height: 1px; }
 
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: stretch;
                     Rectangle { horizontal-stretch: 1; background: transparent; }
                     Button {
                         height: 26px;
@@ -143,24 +114,30 @@ export component MacAddressWindow inherits Window {
                     x: (parent.width - self.width) / 2;
                     y: (parent.height - self.height) / 2;
                     border-radius: 8px;
-                    background: Theme.card-bg;
+                    background: Palette.background;
                     border-width: 1px;
-                    border-color: Theme.menu-border;
+                    border-color: Palette.border;
 
-                    VerticalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.column;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         padding: 14px;
                         spacing: 10px;
 
                         Text {
                             text: "修改成功,需要重启网卡才可生效";
-                            color: Theme.text;
+
                             font-size: 10pt;
                             wrap: word-wrap;
                         }
 
                         Rectangle { vertical-stretch: 1; background: transparent; }
 
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
                             spacing: 8px;
 
                             Rectangle { horizontal-stretch: 1; background: transparent; }

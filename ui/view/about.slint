@@ -1,12 +1,11 @@
 ﻿import "../assets/remixicon.ttf";
-import { Theme } from "../theme.slint";
+import { Palette,StyleMetrics } from "std-widgets.slint";
+import { Page } from "widget/page.slint";
 
-export component AboutWindow inherits Window {
+export component AboutWindow inherits Page {
     width: 420px;
     height: 320px;
-    background: transparent;
-    no-frame: true;
-    always-on-top: true;
+    background: Palette.background;
 
     in-out property <string> app_name;
     in-out property <string> version_text;
@@ -18,103 +17,64 @@ export component AboutWindow inherits Window {
     callback close_about();
     callback open_github();
 
-    root_ta := TouchArea {
-        width: 100%;
-        height: 100%;
-        mouse-cursor: self.pressed ? MouseCursor.move : MouseCursor.default;
-
-        moved => {
-            root.win_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
-        }
 
         Rectangle {
             width: 100%;
             height: 100%;
             border-radius: 10px;
-            background: Theme.window-bg;
-            border-width: 1px;
-            border-color: Theme.menu-border;
-            drop-shadow-blur: 16px;
-
-            VerticalLayout {
+            FlexboxLayout {
+                flex-direction: FlexboxLayoutDirection.column;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: stretch;
                 padding: 12px;
                 spacing: 8px;
 
-                HorizontalLayout {
-                    Text {
-                        text: root.app_name;
-                        color: Theme.title;
-                        font-size: 12pt;
-                        font-weight: 800;
-                    }
-
-                    Rectangle { horizontal-stretch: 1; background: transparent; }
-
-                    close_btn := Rectangle {
-                        width: 24px;
-                        height: 24px;
-                        border-radius: 4px;
-                        background: close_ta.has-hover ? Theme.menu-hover-bg : transparent;
-
-                        close_ta := TouchArea {
-                            mouse-cursor: MouseCursor.pointer;
-                            clicked => { root.close_about(); }
-                        }
-
-                        Text {
-                            width: 100%;
-                            height: 100%;
-                            text: "\u{eb99}";
-                            color: close_ta.has-hover ? Theme.menu-hover-fg : Theme.text;
-                            font-size: 14px;
-                            font-family: "remixicon";
-                            vertical-alignment: center;
-                            horizontal-alignment: center;
-                        }
-                    }
-                }
 
                 Text {
                     text: root.version_text;
-                    color: Theme.sub-title;
+                    // color: Palette.default-text-color;
                     font-size: 9pt;
                 }
 
                 github_link := Rectangle {
                     height: 26px;
                     border-radius: 6px;
-                    background: github_ta.has-hover ? Theme.menu-hover-bg : transparent;
+                    background: Palette.accent-foreground;
 
                     github_ta := TouchArea {
                         mouse-cursor: MouseCursor.pointer;
                         clicked => { root.open_github(); }
                     }
 
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: stretch;
                         padding-left: 8px;
                         padding-right: 8px;
 
                         Text {
                             text: root.github_url;
-                            color: github_ta.has-hover ? Theme.menu-hover-fg : Theme.text-low;
+                            // color: StyleMetrics.default-text-color;
+                            font-italic: true;
                             font-size: 9pt;
                             vertical-alignment: center;
                         }
                     }
                 }
 
-                Rectangle { height: 1px; background: Theme.menu-border; }
+                Rectangle { height: 1px; background: Palette.background; }
 
                 Text {
                     text: "开源声明";
-                    color: Theme.sub-title;
+                    // color: Theme.sub-title;
                     font-size: 10pt;
                     font-weight: 700;
                 }
 
                 Rectangle {
                     border-radius: 8px;
-                    background: Theme.card-bg;
+                    background: Palette.accent-foreground;
                     vertical-stretch: 1;
 
                     Text {
@@ -123,7 +83,7 @@ export component AboutWindow inherits Window {
                         width: parent.width - 20px;
                         height: parent.height - 20px;
                         text: root.oss_notice;
-                        color: Theme.text;
+                        // color: StyleMetrics.default-text-color;
                         font-size: 9pt;
                         wrap: word-wrap;
                         vertical-alignment: top;
@@ -131,6 +91,5 @@ export component AboutWindow inherits Window {
                 }
             }
         }
-    }
-}
 
+}

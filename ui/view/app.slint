@@ -12,9 +12,8 @@ export { AboutWindow, MacAddressWindow, PortProxyWindow, RouteManagerWindow, Con
 
 export component AppWindow inherits Window {
     title: "Meter RS";
-
     always-on-top: root.always_on_top_state;
-
+    icon: @image-url("../assets/icon.svg");
     no-frame: true;
     background: transparent;
     default-font-size: Theme.font-size;
@@ -28,8 +27,12 @@ export component AppWindow inherits Window {
 
     callback win_move(length, length);
     callback win_move_up();
+    callback show_context_menu();
 
-    content := VerticalLayout {
+    content := FlexboxLayout {
+        flex-direction: FlexboxLayoutDirection.column;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: stretch;
         if (ConfigStore.display_mode == DisplayMode.simple || ConfigStore.display_mode == DisplayMode.taskbar): SimpleWidget {
             win_move(x, y) => {
                 root.win_move(x, y);
@@ -37,6 +40,10 @@ export component AppWindow inherits Window {
 
             win_move_up => {
                 root.win_move_up();
+            }
+
+            show_context_menu => {
+                root.show_context_menu();
             }
         }
 
@@ -47,6 +54,10 @@ export component AppWindow inherits Window {
 
             win_move_up => {
                 root.win_move_up();
+            }
+
+            show_context_menu => {
+                root.show_context_menu();
             }
         }
     }

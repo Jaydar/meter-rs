@@ -27,6 +27,7 @@ impl ViewTrait for RouteManagerView {
         self.ui.set_loading_visible(true);
         let _ = self.ui.show();
         self.set_position();
+        super::setup_page_window(&self.ui);
         self.reload_data();
         Ok(())
     }
@@ -54,16 +55,11 @@ impl ViewTrait for RouteManagerView {
     }
 
     fn bind_event(self) -> Self {
-        self.ui.on_win_move(|delta_x, delta_y| {
-            let route_view = ui::use_view::<crate::view::RouteManagerView>();
-            let window = route_view.ui.window();
-            let scale_factor = window.scale_factor();
-            let logical_pos = window.position().to_logical(scale_factor);
-            window.set_position(slint::LogicalPosition::new(logical_pos.x + delta_x, logical_pos.y + delta_y));
-        });
-        self.ui.on_close_route_manager(|| {
-            let route_view = ui::use_view::<crate::view::RouteManagerView>();
-            route_view.hide();
+        self.ui.window().on_close_requested(|| {
+            if std::env::args().any(|arg| arg == "--page") {
+                std::process::exit(0);
+            }
+            slint::CloseRequestResponse::HideWindow
         });
         self.ui.on_add_route(|destination, next_hop, address_family, policy_store, interface_index, metric| {
             let weak = ui::use_view::<crate::view::RouteManagerView>().ui.as_weak();

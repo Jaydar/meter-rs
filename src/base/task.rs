@@ -32,7 +32,7 @@ fn format_rate(bytes: u64) -> String {
 }
 
 fn get_computer_name() -> String {
-    System::host_name().unwrap_or_else(|| "Unknown".to_string())
+    System::host_name().unwrap_or_else(|_| "Unknown".to_string())
 }
 
 fn disk_id(disk: &sysinfo::Disk) -> String {
@@ -63,7 +63,10 @@ fn trim_working_set() {
 }
 
 pub fn refresh_disk_menu(view: &ui::AppWindow) {
-    let mut disks = Disks::new();
+    let Ok(mut disks) = Disks::new() else {
+        error!("create disks info failed");
+        return;
+    };
     disks.refresh_specifics(true, DiskRefreshKind::nothing().with_storage());
 
     let runtime_store = view.global::<ui::RuntimeStore>();
@@ -113,7 +116,10 @@ pub fn start_monitor(view: &ui::AppWindow) {
     let weak = view.as_weak();
 
     let pool = rayon::ThreadPoolBuilder::new().num_threads(1).start_handler(|_| unsafe {
-        let mut system = System::new();
+        let Ok(mut system) = System::new() else {
+            error!("create system info failed");
+            return;
+        };
         system.refresh_cpu_all();
         if SetThreadAffinityMask(GetCurrentThread(), 1usize << system.cpus().len().saturating_sub(1)) == 0 {
             error!("SetThreadAffinityMask failed");
@@ -127,9 +133,18 @@ pub fn start_monitor(view: &ui::AppWindow) {
 
     pool.spawn(move || {
 
-        let mut system = System::new();
-        let mut disks = Disks::new();
-        let mut networks = Networks::new();
+        let Ok(mut system) = System::new() else {
+            error!("create system info failed");
+            return;
+        };
+        let Ok(mut disks) = Disks::new() else {
+            error!("create disks info failed");
+            return;
+        };
+        let Ok(mut networks) = Networks::new() else {
+            error!("create networks info failed");
+            return;
+        };
 
         // cpu 测试
         // let test_until = std::time::Instant::now() + Duration::from_secs(1000000);
@@ -176,7 +191,7 @@ pub fn start_monitor(view: &ui::AppWindow) {
             let had_monitored_disks = !request.selected_disk_ids.is_empty();
 
             let (cpu_usage, memory_usage) = {
-                system.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
+                system.refresh_cpu_specifics(CpuRefreshKind::nothing().with_usage());
                 system.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
 
                 let cpu = system.global_cpu_usage();

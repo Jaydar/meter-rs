@@ -1,0 +1,492 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView, Palette, ScrollView } from "std-widgets.slint";
+import { IconButton } from "icon_button.slint";
+
+global TablePalette {
+    out property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    out property <brush> background: Palette.background;
+    out property <brush> control-background: Palette.control-background;
+    out property <brush> control-foreground: Palette.control-foreground;
+    out property <brush> accent-background: Palette.accent-background;
+    out property <brush> control-secondary: dark-color-scheme ? #FFFFFF14 : #F9F9F980;
+    out property <brush> hover: dark-color-scheme ? #FFFFFF1F : #0000000D;
+    out property <brush> sub-title-tertiary: dark-color-scheme ? #FFFFFF0A : #00000005;
+    out property <brush> text-secondary: dark-color-scheme ? #FFFFFFC9 : #00000099;
+    out property <brush> divider: dark-color-scheme ? #FFFFFF14 : #00000014;
+    out property <brush> subtle-secondary: dark-color-scheme ? #FFFFFF0F : #0000000A;
+    out property <brush> subtle-tertiary: dark-color-scheme ? #FFFFFF0A : #00000005;
+}
+
+export struct TableHeaderStyle {
+    height: length = 36px,
+    margin: length = 0px,
+    padding-left: length = 8px,
+    padding-right: length = 8px,
+    padding-top: length = 0px,
+    padding-bottom: length = 0px,
+    alignment: TextHorizontalAlignment = TextHorizontalAlignment.center,
+    background: brush = Colors.transparent,
+    foreground: brush = Colors.transparent,
+    font-size: length = 9pt,
+    font-weight: int = 700,
+}
+
+export struct TableBodyStyle {
+    height: length = 34px,
+    padding-left: length = 8px,
+    padding-right: length = 8px,
+    padding-top: length = 0px,
+    padding-bottom: length = 0px,
+    alignment: TextHorizontalAlignment = TextHorizontalAlignment.center,
+    background: brush = Colors.transparent,
+    foreground: brush = Colors.transparent,
+    font-size: length = 9pt,
+    font-weight: int = 400,
+    action-spacing: length = 6px,
+}
+
+export struct TableCellStyle {
+    background: brush = Colors.transparent,
+    foreground: brush = Colors.transparent,
+    font-size: length = 0px,
+    font-weight: int = 0,
+}
+
+export struct TableColumnStyle {
+    title: string,
+    width: length = 0px,
+    min-width: length = 0px,
+    horizontal-stretch: float = 0,
+    sort-order: SortOrder = SortOrder.unsorted,
+    sortable: bool = true,
+    header: TableHeaderStyle,
+    body: TableBodyStyle,
+}
+
+export component TableViewColumn inherits Rectangle {
+    in property <SortOrder> sort-order: SortOrder.unsorted;
+    in property <bool> sortable: true;
+    in property <length> header-margin: 0px;
+    in property <length> header-padding-left: 8px;
+    in property <length> header-padding-right: 8px;
+    in property <length> header-padding-top: 0px;
+    in property <length> header-padding-bottom: 0px;
+    in property <brush> background-color: Colors.transparent;
+
+    callback clicked <=> touch-area.clicked;
+    callback adjust_size(length);
+
+    background-rect := Rectangle {
+        x: root.header-margin;
+        y: root.header-margin;
+        width: parent.width - 2 * root.header-margin;
+        height: parent.height - 2 * root.header-margin;
+        background: root.background-color == Colors.transparent ? TablePalette.control-secondary : root.background-color;
+
+        states [
+            hover when touch-area.has-hover : {
+                background: TablePalette.hover;
+            }
+        ]
+    }
+
+    touch-area := TouchArea {
+        width: parent.width - 11px;
+    }
+
+    FlexboxLayout {
+        flex-direction: FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: stretch;
+        padding-left: root.header-padding-left;
+        padding-right: root.header-padding-right;
+        padding-top: root.header-padding-top;
+        padding-bottom: root.header-padding-bottom;
+
+        FlexboxLayout {
+            flex-direction: FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: stretch;
+            horizontal-stretch: 1;
+            @children
+        }
+    }
+
+    icon := Image {
+        x: parent.width - self.width - 6px;
+        image-fit: contain;
+        colorize: TablePalette.text-secondary;
+        visible: root.sortable && root.sort-order != SortOrder.unsorted;
+        width: 12px;
+        y: (parent.height - self.height) / 2;
+        source: root.sort-order == SortOrder.ascending ? @image-url("../../assets/table-arrow-down.svg") : @image-url("../../assets/table-arrow-up.svg");
+        accessible-role: none;
+
+        animate colorize { duration: 150ms; }
+    }
+
+    // border
+    Rectangle {
+        y: parent.height - self.height;
+        width: 100%;
+        height: 1px;
+        background: TablePalette.divider;
+    }
+
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+
+        states [
+            hover when movable-touch-area.has-hover : {
+                background: TablePalette.control-secondary;
+            }
+        ]
+
+        animate background { duration: 150ms; }
+
+        movable-touch-area := TouchArea {
+            width: 10px;
+            mouse-cursor: ew-resize;
+
+            moved => {
+                if (self.pressed) {
+                    adjust_size(self.mouse-x - self.pressed-x);
+                }
+            }
+        }
+    }
+}
+
+export component TableViewCell inherits Rectangle {
+    in property <TableColumnStyle> column;
+
+    height: 100%;
+    clip: true;
+    horizontal-stretch: column.horizontal-stretch;
+    min-width: max(column.min-width, column.width);
+    preferred-width: self.min-width;
+    max-width: column.width >= 1px ? max(column.min-width, column.width) : 100000px;
+
+    FlexboxLayout {
+        flex-direction: FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        width: 100%;
+        height: 100%;
+        alignment: center;
+        @children
+    }
+}
+
+export component TableViewRow inherits Rectangle {
+    in property <bool> selected;
+    in property <bool> even;
+    in property <length> row-height: 34px;
+
+    callback clicked <=> touch-area.clicked;
+    callback pointer-event(event: PointerEvent, position: Point);
+
+    min-width: layout.min-width;
+    min-height: root.row-height;
+    horizontal-stretch: 1;
+    border-radius: 4px;
+    background: root.even ? TablePalette.control-background : Colors.transparent;
+
+    states [
+        pressed when touch-area.pressed : {
+            root.background: selected ? TablePalette.subtle-secondary : TablePalette.subtle-tertiary;
+        }
+        hover when touch-area.has-hover : {
+            root.background: selected ? TablePalette.subtle-tertiary : TablePalette.subtle-secondary;
+            selector.height: root.selected ? 16px : 0;
+        }
+        selected when root.selected : {
+            root.background: TablePalette.subtle-secondary;
+            selector.height: 16px;
+        }
+    ]
+
+    touch-area := TouchArea {
+        pointer-event(pe) => {
+            root.pointer-event(pe, {
+                x: self.absolute-position.x + self.mouse-x,
+                y: self.absolute-position.y + self.mouse-y,
+            });
+        }
+    }
+
+    layout := FlexboxLayout {
+        flex-direction: FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: stretch;
+        width: 100%;
+        @children
+    }
+
+    Rectangle {
+        y: parent.height - self.height;
+        width: 100%;
+        height: 1px;
+        background: TablePalette.divider;
+    }
+
+    selector := Rectangle {
+        x: 0px;
+        y: (parent.height - self.height) / 2;
+        width: 3px;
+        height: 0px;
+        background: TablePalette.accent-background;
+        border-radius: 2px;
+
+        animate height { duration: 150ms; easing: ease-out; }
+    }
+}
+
+export component CenteredTableView {
+    in property <[[StandardListViewItem]]> rows;
+    in property <[[TableCellStyle]]> cell-styles: [];
+    in property <bool> custom-body: false;
+    in property <[string]> action-icons: [];
+    out property <int> current-sort-column: -1;
+    in-out property <[TableColumnStyle]> columns;
+    private property <length> header-height: columns.length > 0 ? columns[0].header.height : 36px;
+    private property <length> row-height: columns.length > 0 ? columns[0].body.height : 34px;
+    in-out property <int> current-row: -1;
+    in property <bool> enabled <=> scroll-view.enabled;
+    out property <length> visible-width <=> scroll-view.visible-width;
+    out property <length> visible-height <=> scroll-view.visible-height;
+    in-out property <bool> has-focus <=> scroll-view.has-focus;
+    in-out property <length> content-width <=> scroll-view.content-width;
+    in-out property <length> content-height <=> scroll-view.content-height;
+    in-out property <length> content-x <=> scroll-view.content-x;
+    in-out property <length> content-y <=> scroll-view.content-y;
+    in property <ScrollBarPolicy> vertical-scrollbar-policy <=> scroll-view.vertical-scrollbar-policy;
+    in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> scroll-view.horizontal-scrollbar-policy;
+
+    callback sort-ascending(column: int);
+    callback sort-descending(column: int);
+    callback row-pointer-event(row: int, event: PointerEvent, position: Point);
+    callback current-row-changed(current-row: int);
+    callback action-clicked(row: int, index: int);
+
+    public function set-current-row(index: int) {
+        if (index < 0 || (!root.custom-body && index >= rows.length)) {
+            return;
+        }
+
+        current-row = index;
+        current-row-changed(current-row);
+
+        if (root.custom-body) {
+            return;
+        }
+
+        if (current-item-y < 0) {
+            scroll-view.content-y += 0 - current-item-y;
+        }
+
+        if (current-item-y + item-height > scroll-view.visible-height) {
+            scroll-view.content-y -= current-item-y + item-height - scroll-view.visible-height;
+        }
+    }
+
+    private property <length> item-height: scroll-view.content-height / rows.length;
+    private property <length> current-item-y: scroll-view.content-y + current-row * item-height;
+
+    function sort(index: int) {
+        if (index < 0 || index >= root.columns.length) {
+            return;
+        }
+
+        if (root.current-sort-column >= 0 && root.current-sort-column != index) {
+            root.columns[root.current-sort-column].sort-order = SortOrder.unsorted;
+        }
+
+        if(root.columns[index].sort-order == SortOrder.ascending) {
+            root.columns[index].sort-order = SortOrder.descending;
+            root.sort-descending(index);
+        } else {
+            root.columns[index].sort-order = SortOrder.ascending;
+            root.sort-ascending(index);
+        }
+
+        root.current-sort-column = index;
+    }
+
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    forward-focus: focus-scope;
+    accessible-role: table;
+
+    FlexboxLayout {
+        flex-direction: FlexboxLayoutDirection.column;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: stretch;
+        Rectangle {
+            clip: true;
+            vertical-stretch: 0;
+            min-height: header-layout.min-height;
+
+            header-layout := FlexboxLayout {
+                flex-direction: FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: stretch;
+                width: max(self.preferred-width, parent.width);
+                x: root.custom-body ? custom-body-layout.content-x : scroll-view.content-x;
+                min-height: root.header-height;
+
+                for column[index] in root.columns : TableViewColumn {
+                    sort-order: column.sort-order;
+                    sortable: column.sortable;
+                    header-margin: column.header.margin;
+                    header-padding-left: column.header.padding-left;
+                    header-padding-right: column.header.padding-right;
+                    header-padding-top: column.header.padding-top;
+                    header-padding-bottom: column.header.padding-bottom;
+                    background-color: column.header.background;
+                    horizontal-stretch: column.horizontal-stretch;
+                    min-width: max(column.min-width, column.width);
+                    preferred-width: self.min-width;
+                    max-width: (index < columns.length && column.width >= 1px) ? max(column.min-width, column.width) : 100000px;
+
+                    clicked => {
+                        if (column.sortable) {
+                            root.sort(index);
+                        }
+                    }
+
+                    adjust-size(diff) => {
+                        column.width = max(1px, self.width + diff);
+                    }
+
+                    Text {
+                        horizontal-stretch: 1;
+                        horizontal-alignment: column.header.alignment;
+                        vertical-alignment: center;
+                        text: column.title;
+                        font-size: column.header.font-size;
+                        font-weight: column.header.font-weight;
+                        color: column.header.foreground == Colors.transparent ? TablePalette.text-secondary : column.header.foreground;
+                        overflow: elide;
+                    }
+                }
+            }
+        }
+
+        scroll-view := ListView {
+            visible: !root.custom-body;
+            min-height: root.custom-body ? 0px : 50px;
+            preferred-height: 0px;
+            vertical-stretch: root.custom-body ? 0 : 1;
+            for row[idx] in root.rows : TableViewRow {
+                selected: idx == root.current-row;
+                even: mod(idx, 2) == 0;
+                row-height: root.row-height;
+
+                pointer-event(pe, pos) => {
+                    root.row-pointer-event(idx, pe, {
+                        x: pos.x - root.absolute-position.x,
+                        y: pos.y - root.absolute-position.y,
+                    });
+                }
+
+                clicked => {
+                    root.focus();
+                    root.set-current-row(idx);
+                }
+
+                for column[index] in root.columns : TableViewCell {
+                    private property <bool> has_inner_focus;
+                    private property <bool> has_style: idx < root.cell-styles.length && index < root.cell-styles[idx].length;
+                    private property <brush> cell-background: has_style ? root.cell-styles[idx][index].background : Colors.transparent;
+                    private property <brush> cell-foreground: has_style ? root.cell-styles[idx][index].foreground : Colors.transparent;
+                    private property <length> cell-font-size: has_style ? root.cell-styles[idx][index].font-size : 0px;
+                    private property <int> cell-font-weight: has_style ? root.cell-styles[idx][index].font-weight : 0;
+
+                    horizontal-stretch: column.horizontal-stretch;
+                    min-width: max(column.min-width, column.width);
+                    preferred-width: self.min-width;
+                    max-width: (index < columns.length && column.width >= 1px) ? max(column.min-width, column.width) : 100000px;
+                    background: cell-background != Colors.transparent ? cell-background : column.body.background;
+
+                    if (root.action-icons.length > 0 && index == root.columns.length - 1) : FlexboxLayout {
+                        flex-direction: FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: center;
+                        spacing: column.body.action-spacing;
+
+                        for icon[i] in root.action-icons : Rectangle {
+                            width: 28px;
+                            height: 100%;
+
+                            IconButton {
+                                y: (parent.height - self.height) / 2;
+                                icon: icon;
+                                clicked => { root.action-clicked(idx, i); }
+                            }
+                        }
+                    }
+
+                    if (root.action-icons.length == 0 || index != root.columns.length - 1) : Rectangle {
+                        FlexboxLayout {
+                            flex-direction: FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: stretch;
+                            padding-left: column.body.padding-left;
+                            padding-right: column.body.padding-right;
+                            padding-top: column.body.padding-top;
+                            padding-bottom: column.body.padding-bottom;
+
+                            Text {
+                                horizontal-stretch: 1;
+                                height: 100%;
+                                overflow: elide;
+                                vertical-alignment: center;
+                                horizontal-alignment: column.body.alignment;
+                                text: index < row.length ? row[index].text : "";
+                                font-size: cell-font-size > 0px ? cell-font-size : column.body.font-size;
+                                font-weight: cell-font-weight > 0 ? cell-font-weight : column.body.font-weight;
+                                color: cell-foreground != Colors.transparent ? cell-foreground : (column.body.foreground == Colors.transparent ? TablePalette.control-foreground : column.body.foreground);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        custom-body-layout := ScrollView {
+            visible: root.custom-body;
+            min-height: root.custom-body ? 50px : 0px;
+            preferred-height: 0px;
+            vertical-stretch: root.custom-body ? 1 : 0;
+            vertical-scrollbar-policy: as-needed;
+            horizontal-scrollbar-policy: as-needed;
+
+            body-layout := FlexboxLayout {
+                flex-direction: FlexboxLayoutDirection.column;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: start;
+                width: max(header-layout.preferred-width, parent.width);
+
+                @children
+            }
+        }
+    }
+
+    focus-scope := FocusScope {
+        x: 0;
+        width: 0; // Do not react on clicks
+
+        key-pressed(event) => {
+            if (event.text == Key.UpArrow) {
+                root.set-current-row(root.current-row - 1);
+                return accept;
+            } else if (event.text == Key.DownArrow) {
+                root.set-current-row(root.current-row + 1);
+                return accept;
+            }
+            reject
+        }
+    }
+}

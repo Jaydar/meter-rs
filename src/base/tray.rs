@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use muda::{CheckMenuItem, IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
+use muda::{CheckMenuItem, ContextMenu, IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use slint::{ComponentHandle, Model, ModelRc};
 use tracing::error;
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
@@ -10,8 +10,7 @@ use windows::{
 };
 
 use crate::{
-    _main_hwnd, task, tools, ui,
-    view::{AboutView, AppView, MacAddressView, PortProxyView, RouteManagerView, ViewTrait},
+    _main_hwnd, task, tools, ui, view::{self, ViewTrait}
 };
 
 thread_local! {
@@ -26,7 +25,7 @@ pub fn setup(_hwnd: usize) {
                 return;
             }
 
-            apply_windows_menu_theme(ui::use_view::<AppView>().ui.global::<ui::ConfigStore>().get_theme_mode());
+            apply_windows_menu_theme(ui::use_view::<view::AppView>().ui.global::<ui::ConfigStore>().get_theme_mode());
             let menu = build_menu();
             let icon = tray_icon_image();
             let icon = match icon {
@@ -107,7 +106,7 @@ fn handle_menu_event(id: &str) {
         return;
     }
 
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     let config_store = app_view.ui.global::<ui::ConfigStore>();
     match id {
         "theme:system" => set_theme(ui::ThemeMode::System),
@@ -139,7 +138,7 @@ fn handle_menu_event(id: &str) {
         "clean_memory" => tools::clean_memory(),
         "mac_address" => {
             if tools::is_admin() {
-                if let Err(err) = ui::open_view::<MacAddressView>() {
+                if let Err(err) = ui::open_view::<view::MacAddressView>() {
                     error!("{}", err);
                 }
             } else if let Err(err) = tools::run_as_admin_open_page("mac") {
@@ -148,7 +147,7 @@ fn handle_menu_event(id: &str) {
         }
         "route_manager" => {
             if tools::is_admin() {
-                if let Err(err) = ui::open_view::<RouteManagerView>() {
+                if let Err(err) = ui::open_view::<view::RouteManagerView>() {
                     error!("{}", err);
                 }
             } else if let Err(err) = tools::run_as_admin_open_page("route") {
@@ -157,15 +156,15 @@ fn handle_menu_event(id: &str) {
         }
         "port_proxy" => {
             if tools::is_admin() {
-                if let Err(err) = ui::use_view::<PortProxyView>().show(None) {
+                if let Err(err) = ui::open_view::<view::PortProxyView>() {
                     error!("{}", err);
                 }
-            } else if let Err(err) = tools::run_as_admin_open_page("port-proxy") {
+            } else if let Err(err) = tools::run_as_admin_open_page("port") {
                 error!("{}", err);
             }
         }
         "about" => {
-            if let Err(err) = ui::open_view::<AboutView>() {
+            if let Err(err) = ui::open_view::<view::AboutView>() {
                 error!("{}", err);
             }
         }
@@ -178,7 +177,7 @@ fn handle_menu_event(id: &str) {
 }
 
 fn build_menu() -> Menu {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     task::refresh_disk_menu(&app_view.ui);
     let config_store = app_view.ui.global::<ui::ConfigStore>();
     let runtime_store = app_view.ui.global::<ui::RuntimeStore>();
@@ -270,17 +269,30 @@ fn disk_menu(runtime_store: &ui::RuntimeStore) -> Submenu {
     Submenu::with_items("磁盘监控", true, &refs).unwrap()
 }
 
+pub(crate) fn show_context_menu() {
+    let hwnd = _main_hwnd.load(std::sync::atomic::Ordering::Relaxed);
+    if hwnd == 0 {
+        return;
+    }
+
+    apply_windows_menu_theme(ui::use_view::<view::AppView>().ui.global::<ui::ConfigStore>().get_theme_mode());
+    let menu = build_menu();
+    unsafe {
+        menu.show_context_menu_for_hwnd(hwnd as isize, None);
+    }
+}
+
 fn sync_tray() {
     _tray.with(|tray| {
         if let Some(tray_icon) = tray.borrow().as_ref() {
-            apply_windows_menu_theme(ui::use_view::<AppView>().ui.global::<ui::ConfigStore>().get_theme_mode());
+            apply_windows_menu_theme(ui::use_view::<view::AppView>().ui.global::<ui::ConfigStore>().get_theme_mode());
             tray_icon.set_menu(Some(Box::new(build_menu())));
         }
     });
 }
 
 pub(crate) fn set_theme(theme_mode: ui::ThemeMode) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_theme_mode(theme_mode);
     app_view.ui.global::<ui::Theme>().set_mode(theme_mode);
     apply_windows_menu_theme(theme_mode);
@@ -289,49 +301,49 @@ pub(crate) fn set_theme(theme_mode: ui::ThemeMode) {
 }
 
 pub(crate) fn set_show_hostname(value: bool) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_show_hostname(value);
     crate::base::config::save(&app_view.ui);
     sync_tray();
 }
 
 pub(crate) fn set_show_cpu(value: bool) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_show_cpu(value);
     crate::base::config::save(&app_view.ui);
     sync_tray();
 }
 
 pub(crate) fn set_show_memory(value: bool) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_show_memory(value);
     crate::base::config::save(&app_view.ui);
     sync_tray();
 }
 
 pub(crate) fn set_show_disk_total(value: bool) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_show_disk_total(value);
     crate::base::config::save(&app_view.ui);
     sync_tray();
 }
 
 pub(crate) fn set_show_disk_io(value: bool) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_show_disk_io(value);
     crate::base::config::save(&app_view.ui);
     sync_tray();
 }
 
 pub(crate) fn set_show_network(value: bool) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_show_network(value);
     crate::base::config::save(&app_view.ui);
     sync_tray();
 }
 
 pub(crate) fn set_display_mode(value: ui::DisplayMode) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_display_mode(value);
     app_view.set_position();
     crate::base::config::save(&app_view.ui);
@@ -339,7 +351,7 @@ pub(crate) fn set_display_mode(value: ui::DisplayMode) {
 }
 
 pub(crate) fn set_mouse_passthrough(value: bool) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_mouse_passthrough(value);
     let hwnd = _main_hwnd.load(std::sync::atomic::Ordering::Relaxed);
     if hwnd != 0 {
@@ -350,7 +362,7 @@ pub(crate) fn set_mouse_passthrough(value: bool) {
 }
 
 pub(crate) fn set_prevent_sleep(value: bool) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_prevent_sleep(value);
     tools::set_prevent_sleep(value);
     crate::base::config::save(&app_view.ui);
@@ -358,14 +370,14 @@ pub(crate) fn set_prevent_sleep(value: bool) {
 }
 
 pub(crate) fn set_auto_start(value: bool) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     tools::set_auto_start(value);
     app_view.ui.global::<ui::ConfigStore>().set_auto_start(value);
     sync_tray();
 }
 
 pub(crate) fn set_always_on_top(value: bool) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_always_on_top(value);
     app_view.ui.set_always_on_top_state(value);
     crate::base::config::save(&app_view.ui);
@@ -373,28 +385,28 @@ pub(crate) fn set_always_on_top(value: bool) {
 }
 
 pub(crate) fn set_snap_to_edge(value: bool) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_snap_to_edge(value);
     crate::base::config::save(&app_view.ui);
     sync_tray();
 }
 
 pub(crate) fn set_snap_mode(value: ui::SnapMode) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_snap_mode(value);
     crate::base::config::save(&app_view.ui);
     sync_tray();
 }
 
 pub(crate) fn set_opacity(value: f32) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     app_view.ui.global::<ui::ConfigStore>().set_window_opacity(value);
     crate::base::config::save(&app_view.ui);
     sync_tray();
 }
 
 pub(crate) fn toggle_disk(disk_id: slint::SharedString) {
-    let app_view = ui::use_view::<AppView>();
+    let app_view = ui::use_view::<view::AppView>();
     let runtime_store = app_view.ui.global::<ui::RuntimeStore>();
     let model = runtime_store.get_disk_menu_entries();
     let mut entries = Vec::new();
@@ -411,4 +423,3 @@ pub(crate) fn toggle_disk(disk_id: slint::SharedString) {
     crate::base::config::save(&app_view.ui);
     sync_tray();
 }
-
